@@ -4,7 +4,7 @@
  * nothing here throws out of `fetchFires`. Memory stays bounded: bodies are never read as one string.
  */
 import type { FireWindow, FiresDTO, LayerError, Result } from "@/types/layers";
-import { err, layerError, ok, toLayerError } from "../layers/result";
+import { err, layerError, ok } from "../layers/result";
 
 /** Root of the FIRMS global CSV feeds. */
 export const FIRMS_BASE = "https://firms.modaps.eosdis.nasa.gov/data/active_fire";
@@ -308,41 +308,29 @@ export async function fetchFires(
 ): Promise<Result<FiresDTO, LayerError>> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const files = FIRMS_FILES[window];
-  // `no-store`: the CSVs (4.5–29 MB) exceed the 2 MB Data Cache limit; on Vercel a cached/teed body came back
-  // empty for the second sensor. The route memoises the binned DTO instead.
-  const init: RequestInit = { cache: "no-store", signal: AbortSignal.timeout(window === "7d" ? 55000 : 25000) };
-  const bodies = await Promise.all(
-    files.map(async (file): Promise<Result<ReadableStream<Uint8Array>, LayerError>> => {
-      try {
-        const response = await fetchImpl(file.url, init);
-        if (response.status !== 200 || !response.body) {
-          await response.body?.cancel().catch(() => undefined);
-          return err(layerError("upstream", `HTTP ${response.status} ${file.url}`));
-        }
-        return ok(response.body);
-      } catch (cause) {
-        return err(toLayerError(cause, "upstream"));
-      }
-    }),
-  );
+  const timeoutMs = window === "7d" ? 27000 : 12000;
   const acc = createFirmsAccumulator();
   const sources: string[] = [];
   const failures: string[] = [];
-  for (let i = 0; i < files.length; i += 1) {
-    const body = bodies[i];
-    if (!body.ok) {
-      failures.push(`${files[i].sensor}: ${body.error.detail ?? body.error.code}`);
-      continue;
-    }
+  // Sequential download + parse: a second body left unread while the first is parsed came back empty on Vercel.
+  // `no-store`: the CSVs (4.5–29 MB) exceed the 2 MB Data Cache limit; the route memoises the binned DTO instead.
+  for (const file of files) {
     try {
-      const bytes = await parseCsvStream(body.value, acc);
+      const response = await fetchImpl(file.url, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+      if (response.status !== 200 || !response.body) {
+        await response.body?.cancel().catch(() => undefined);
+        failures.push(`${file.sensor}: HTTP ${response.status}`);
+        continue;
+      }
+      const bytes = await parseCsvStream(response.body, acc);
       // A real file always has at least the header line; an empty body is a failed download, not "no fires".
-      if (bytes < MIN_CSV_BYTES) failures.push(`${files[i].sensor}: empty body`);
-      else sources.push(files[i].sensor);
+      if (bytes < MIN_CSV_BYTES) failures.push(`${file.sensor}: empty body (${bytes} B)`);
+      else sources.push(file.sensor);
     } catch (cause) {
-      failures.push(`${files[i].sensor}: ${cause instanceof Error ? cause.message : String(cause)}`);
+      failures.push(`${file.sensor}: ${cause instanceof Error ? cause.message : String(cause)}`);
     }
   }
+  if (failures.length > 0) console.warn("[orbital] FIRMS partial failure:", failures.join("; "));
   if (sources.length === 0) return err(layerError("upstream", failures.join("; ")));
   return ok(acc.finish(window, sources, opts.maxHotspots));
 }
