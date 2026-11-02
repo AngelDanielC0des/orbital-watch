@@ -180,6 +180,18 @@ body.view-earth .filters{right:var(--gutter)}
 
 
 /* Active legend strip */
-@media (max-width:859px){body:has([role="dialog"][aria-label="Capas"]) .legend-strip{display:none}}
+@media (max-width:859px){body:has([data-layers-sheet="half"], [data-layers-sheet="full"]) .legend-strip{display:none}}
 @media (prefers-reduced-motion:no-preference){.legend-strip__skeleton{background:linear-gradient(90deg,var(--rule) 25%,var(--rule-strong) 50%,var(--rule) 75%);background-size:200% 100%;animation:legend-shimmer 1.4s linear infinite}@keyframes legend-shimmer{to{background-position:-200% 0}}}
 /* End active legend strip */
+
+/* Layers sheet (mobile) */
+.layers-sheet__backdrop{display:none}
+@media (max-width:859px){
+.layers-sheet{overflow:hidden;overscroll-behavior:contain}
+.layers-sheet[data-layers-sheet="half"]{height:45dvh}
+.layers-sheet[data-layers-sheet="full"]{height:85dvh}
+.layers-sheet{transition:height .25s ease}
+.layers-sheet[data-dragging="true"]{transition:none}
+.layers-sheet__backdrop{display:block;position:fixed;inset:0;z-index:5;background:rgba(0,0,0,.5)}
+}
+@media (prefers-reduced-motion:reduce){.layers-sheet{transition:none}}
