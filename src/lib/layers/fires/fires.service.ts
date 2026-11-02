@@ -6,6 +6,7 @@ import type { ApiMeta, FireWindow, FiresDTO, FiresLayerConfig, HeatmapPayload, D
 import { GeoCache, dedupe } from "@/lib/layers/geo-cache.service";
 import { fetchEnvelope, withFlags } from "@/lib/layers/http";
 import { err, layerError, ok } from "@/lib/layers/result";
+import { fetchSnapshot } from "@/lib/layers/snapshot-client";
 import { inRange, isFiniteNumber, isRecord, isString } from "@/lib/layers/validate";
 import { FIRE_WINDOWS, HOTSPOT_CAP, FIRE_HEAT_STOPS } from "./fires-scale";
 
@@ -14,6 +15,8 @@ const ROWS = 360;
 const CELLS = COLS * ROWS;
 const MAX_HOTSPOTS = 2000;
 const TTL_MS = 60 * 60 * 1000;
+const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
+const SNAPSHOT_SUFFIX = " · instantánea";
 
 function isFireWindow(value: unknown): value is FireWindow {
   return FIRE_WINDOWS.some((w) => w === value);
@@ -79,6 +82,8 @@ export function toHeatmapPayload(dto: FiresDTO, opts: { cap: number; dayNight: "
 interface CachedFires {
   dto: FiresDTO;
   meta: ApiMeta;
+  /** True when the client-bundled snapshot replaced an unreachable route. */
+  fromSnapshot: boolean;
 }
 
 /** Creates the fires provider (own clock hook for tests; the cache is module-level). */
@@ -91,16 +96,31 @@ export function createFiresProvider(deps: { now?: () => number } = {}): DataProv
         if (ctx.signal.aborted) return err(layerError("aborted"));
         const { window } = config;
         const key = `fires|${window}|${ctx.flags.mockError ? 1 : 0}${ctx.flags.forceSnapshot ? 1 : 0}`;
-        let cached = cache.get(key);
+        let cached = ctx.force ? undefined : (cache.get(key) ?? snapshotCache.get(key));
         if (!cached) {
           const url = withFlags(`/api/orbital/fires?window=${window}`, ctx.flags);
           const result = await dedupe(key, () => fetchEnvelope(url, ctx.signal, isFiresDTO));
-          if (!result.ok) return result;
-          cached = { dto: result.value.data, meta: result.value.meta };
-          cache.set(key, cached);
+          if (result.ok) {
+            cached = { dto: result.value.data, meta: result.value.meta, fromSnapshot: false };
+            cache.set(key, cached);
+          } else {
+            const { code } = result.error;
+            if (ctx.flags.mockError || (code !== "network" && code !== "upstream")) return result;
+            const snapshot = await fetchSnapshot("fires", ctx.signal, isFiresDTO);
+            if (!snapshot.ok) return result;
+            const { data } = snapshot.value;
+            const meta: ApiMeta = {
+              source: data.sources.join(" + ") || "FIRMS",
+              dataDate: data.acqRange?.to ?? null,
+              fetchedAt: new Date(now()).toISOString(),
+              fallback: true,
+            };
+            cached = { dto: data, meta, fromSnapshot: true };
+            snapshotCache.set(key, cached);
+          }
         }
         if (ctx.signal.aborted) return err(layerError("aborted"));
-        const { dto, meta } = cached;
+        const { dto, meta, fromSnapshot } = cached;
         const payload = toHeatmapPayload(dto, { cap: HOTSPOT_CAP[ctx.tier], dayNight: config.dayNight });
         const parsed = Date.parse(meta.fetchedAt);
         return ok({
@@ -108,7 +128,7 @@ export function createFiresProvider(deps: { now?: () => number } = {}): DataProv
           dataDate: payload.date,
           fetchedAt: Number.isFinite(parsed) ? parsed : now(),
           isFallback: meta.fallback,
-          source: dto.sources.join(" + ") || "FIRMS",
+          source: `${dto.sources.join(" + ") || "FIRMS"}${fromSnapshot ? SNAPSHOT_SUFFIX : ""}`,
           empty: dto.total === 0,
         });
       } catch (cause) {
@@ -119,6 +139,8 @@ export function createFiresProvider(deps: { now?: () => number } = {}): DataProv
 }
 
 const cache = new GeoCache<CachedFires>({ ttlMs: TTL_MS, maxEntries: 3 });
+/** Client-snapshot results use a short TTL so live data returns soon. */
+const snapshotCache = new GeoCache<CachedFires>({ ttlMs: SNAPSHOT_TTL_MS, maxEntries: 3 });
 
 /** Shared fires provider. */
 export const firesProvider = createFiresProvider();
@@ -126,4 +148,5 @@ export const firesProvider = createFiresProvider();
 /** Test helper: empties the module-level cache. */
 export function __resetFiresCacheForTests(): void {
   cache.clear();
+  snapshotCache.clear();
 }

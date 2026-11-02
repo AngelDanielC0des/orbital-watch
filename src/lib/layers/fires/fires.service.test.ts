@@ -143,4 +143,51 @@ describe("firesProvider", () => {
     expect(!result.ok && result.error.code).toBe("aborted");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  describe("client snapshot fallback", () => {
+    function routing(live: () => Response | Promise<Response>): void {
+      fetchMock.mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.endsWith("snapshots.json")) {
+          return new Response(JSON.stringify({ fires: { date: "2026-11-01", path: "/sites/orbitalwatch/data/fires-snapshot-2026-11-01.json" } }));
+        }
+        if (url.includes("fires-snapshot")) return new Response(JSON.stringify(makeDto()));
+        return live();
+      });
+    }
+
+    it("uses the snapshot when the route answers 500", async () => {
+      routing(() => new Response("boom", { status: 500 }));
+      const result = await createFiresProvider().load({ window: "24h", dayNight: "all" }, ctx());
+      expect(result.ok && result.value).toMatchObject({ isFallback: true, source: "NOAA-20 + NOAA-21 · instantánea", dataDate: "2026-11-02T11:55:00Z" });
+      await createFiresProvider().load({ window: "24h", dayNight: "night" }, ctx());
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("uses the snapshot on a network error", async () => {
+      routing(() => Promise.reject(new TypeError("offline")));
+      const result = await createFiresProvider().load({ window: "24h", dayNight: "all" }, ctx());
+      expect(result.ok && result.value.isFallback).toBe(true);
+    });
+
+    it("surfaces the error when mockError is set", async () => {
+      routing(() => new Response("boom", { status: 500 }));
+      const result = await createFiresProvider().load(
+        { window: "24h", dayNight: "all" },
+        { ...ctx(), flags: { mockError: true, forceSnapshot: false } },
+      );
+      expect(!result.ok && result.error.code).toBe("upstream");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("force skips the client cache", async () => {
+      fetchMock.mockImplementation(async () => envelope(makeDto()));
+      const provider = createFiresProvider();
+      await provider.load({ window: "24h", dayNight: "all" }, ctx());
+      await provider.load({ window: "24h", dayNight: "all" }, ctx());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await provider.load({ window: "24h", dayNight: "all" }, { ...ctx(), force: true });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
 });

@@ -107,4 +107,52 @@ describe("pollution provider", () => {
     const result = await createPollutionProvider().load({ pollutant: "pm2_5" }, ctx(controller.signal));
     expect(!result.ok && result.error.code).toBe("aborted");
   });
+
+  describe("client snapshot fallback", () => {
+    function routing(live: () => Response | Promise<Response>) {
+      return vi.fn<typeof fetch>(async (input) => {
+        const url = String(input);
+        if (url.endsWith("snapshots.json")) {
+          return envelopeResponse({ pollution: { date: "2026-11-01", path: "/sites/orbitalwatch/data/pollution-snapshot-2026-11-01.json" } });
+        }
+        if (url.includes("pollution-snapshot")) return envelopeResponse(DTO);
+        return live();
+      });
+    }
+
+    it("uses the snapshot when the route answers 500", async () => {
+      const fetchMock = routing(() => new Response("boom", { status: 500 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const result = await createPollutionProvider().load({ pollutant: "pm2_5" }, ctx());
+      expect(result.ok && result.value).toMatchObject({ isFallback: true, dataDate: DTO.time, source: "CAMS (Open-Meteo) · instantánea" });
+      // Cached for a short time: no further requests.
+      await createPollutionProvider().load({ pollutant: "pm10" }, ctx());
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it("uses the snapshot on a network error", async () => {
+      vi.stubGlobal("fetch", routing(() => Promise.reject(new TypeError("offline"))));
+      const result = await createPollutionProvider().load({ pollutant: "pm2_5" }, ctx());
+      expect(result.ok && result.value.isFallback).toBe(true);
+    });
+
+    it("surfaces the error when mockError is set", async () => {
+      const fetchMock = routing(() => new Response("boom", { status: 500 }));
+      vi.stubGlobal("fetch", fetchMock);
+      const result = await createPollutionProvider().load({ pollutant: "pm2_5" }, { ...ctx(), flags: { mockError: true, forceSnapshot: false } });
+      expect(!result.ok && result.error.code).toBe("upstream");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("force skips the client cache", async () => {
+      const fetchMock = vi.fn(async () => envelopeResponse({ ok: true, data: DTO, meta: META }));
+      vi.stubGlobal("fetch", fetchMock);
+      const provider = createPollutionProvider();
+      await provider.load({ pollutant: "pm2_5" }, ctx());
+      await provider.load({ pollutant: "pm2_5" }, ctx());
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await provider.load({ pollutant: "pm2_5" }, { ...ctx(), force: true });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
 });

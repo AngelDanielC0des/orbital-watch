@@ -10,6 +10,7 @@ import type {
   PointsPayload,
   PollutionDTO,
   PollutionLayerConfig,
+  ProviderContext,
   PollutionPointDTO,
   Pollutant,
   ProviderLoad,
@@ -18,11 +19,14 @@ import type {
 import { GeoCache, dedupe } from "../geo-cache.service";
 import { fetchEnvelope, withFlags } from "../http";
 import { err, layerError, ok, toLayerError } from "../result";
+import { fetchSnapshot } from "../snapshot-client";
 import { isFiniteNumber, isIsoDateTime, isNullableFiniteNumber, isRecord, isString } from "../validate";
 import { POLLUTANTS, POLLUTANT_SCALES, normalizeValue } from "./pollutant-scales";
 
 const MAX_POINTS = 600;
 const TTL_MS = 60 * 60_000;
+const SNAPSHOT_TTL_MS = 5 * 60_000;
+const SNAPSHOT_SUFFIX = " · instantánea";
 
 function isPollutionPointDTO(value: unknown): value is PollutionPointDTO {
   if (!isRecord(value)) return false;
@@ -60,13 +64,18 @@ export function toPointsPayload(dto: PollutionDTO, pollutant: Pollutant): Points
 interface CachedPollution {
   dto: PollutionDTO;
   meta: ApiMeta;
+  /** True when the client-bundled snapshot was used because the route was unreachable. */
+  fromSnapshot: boolean;
 }
 
 const cache = new GeoCache<CachedPollution>({ ttlMs: TTL_MS, maxEntries: 2 });
+/** Client-snapshot results live in their own short-TTL cache so live data returns soon. */
+const snapshotCache = new GeoCache<CachedPollution>({ ttlMs: SNAPSHOT_TTL_MS, maxEntries: 2 });
 
 /** Test helper: empties the module-level DTO cache. */
 export function __resetPollutionCacheForTests(): void {
   cache.clear();
+  snapshotCache.clear();
 }
 
 /** Dependencies of {@link createPollutionProvider} (optional, for tests). */
@@ -84,30 +93,43 @@ export interface PollutionProviderDeps {
 export function createPollutionProvider(deps: PollutionProviderDeps = {}): DataProvider<PollutionLayerConfig, PointsPayload> {
   const now = deps.now ?? Date.now;
 
-  async function loadDto(url: string, key: string, signal: AbortSignal): Promise<Result<CachedPollution & { fetchedAt: number }, LayerError>> {
-    const hit = cache.getEntry(key);
-    if (hit) return ok({ ...hit.value, fetchedAt: hit.storedAt });
+  async function loadDto(url: string, key: string, ctx: ProviderContext): Promise<Result<CachedPollution & { fetchedAt: number }, LayerError>> {
+    const { signal, flags, force } = ctx;
+    if (!force) {
+      const hit = cache.getEntry(key) ?? snapshotCache.getEntry(key);
+      if (hit) return ok({ ...hit.value, fetchedAt: hit.storedAt });
+    }
     const envelope = await dedupe(url, () => fetchEnvelope(url, signal, isPollutionDTO));
-    if (!envelope.ok) return envelope;
-    const value: CachedPollution = { dto: envelope.value.data, meta: envelope.value.meta };
+    if (!envelope.ok) {
+      const { code } = envelope.error;
+      if (flags.mockError || (code !== "network" && code !== "upstream")) return envelope;
+      const snapshot = await fetchSnapshot("pollution", signal, isPollutionDTO);
+      if (!snapshot.ok) return envelope;
+      const meta: ApiMeta = { source: "CAMS (Open-Meteo)", dataDate: snapshot.value.data.time, fetchedAt: new Date(now()).toISOString(), fallback: true };
+      const value: CachedPollution = { dto: snapshot.value.data, meta, fromSnapshot: true };
+      snapshotCache.set(key, value);
+      return ok({ ...value, fetchedAt: now() });
+    }
+    const value: CachedPollution = { dto: envelope.value.data, meta: envelope.value.meta, fromSnapshot: false };
     cache.set(key, value);
     return ok({ ...value, fetchedAt: now() });
   }
 
   return {
     id: "pollution",
-    async load(config, { signal, flags }): Promise<Result<ProviderLoad<PointsPayload>, LayerError>> {
+    async load(config, ctx): Promise<Result<ProviderLoad<PointsPayload>, LayerError>> {
       try {
-        const url = withFlags("/api/orbital/pollution", flags);
+        const { signal } = ctx;
+        const url = withFlags("/api/orbital/pollution", ctx.flags);
         const key = `pollution|${url}`;
-        let loaded = await loadDto(url, key, signal);
-        if (!loaded.ok && loaded.error.code === "aborted" && !signal.aborted) loaded = await loadDto(url, key, signal);
+        let loaded = await loadDto(url, key, ctx);
+        if (!loaded.ok && loaded.error.code === "aborted" && !signal.aborted) loaded = await loadDto(url, key, ctx);
         if (signal.aborted) return err(layerError("aborted"));
         if (!loaded.ok) return loaded;
-        const { dto, meta, fetchedAt } = loaded.value;
+        const { dto, meta, fetchedAt, fromSnapshot } = loaded.value;
         const payload = toPointsPayload(dto, config.pollutant);
         const empty = !dto.points.some((point) => Number.isFinite(point[config.pollutant]));
-        return ok({ payload, dataDate: dto.time, fetchedAt, isFallback: meta.fallback, source: "CAMS (Open-Meteo)", empty });
+        return ok({ payload, dataDate: dto.time, fetchedAt, isFallback: meta.fallback, source: fromSnapshot ? `CAMS (Open-Meteo)${SNAPSHOT_SUFFIX}` : "CAMS (Open-Meteo)", empty });
       } catch (cause) {
         return err(toLayerError(cause));
       }
