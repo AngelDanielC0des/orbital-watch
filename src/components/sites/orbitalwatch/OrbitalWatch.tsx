@@ -4,6 +4,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useEngine } from "@/hooks/useEngine";
 import { readUrlState, useUrlState } from "@/hooks/useUrlState";
 import { useEngineStore } from "@/stores/engine-store";
+import { useLayersStore } from "@/stores/layers-store";
+import { parseLayerUrlState } from "@/lib/layers/url-state";
+import { EnvironmentalLayersController } from "./HUD/layers/EnvironmentalLayersController";
 import { HUDHeader } from "./HUD/HUDHeader";
 import { ViewControls } from "./HUD/ViewControls";
 import { FilterBar } from "./HUD/FilterBar";
@@ -54,8 +57,12 @@ export function OrbitalWatch() {
 
   // Parsed once on the client; the server render ignores it (engine mounts in an effect, markup is unaffected).
   const [urlState] = useState(readUrlState);
+  const [layerUrl] = useState(() => parseLayerUrlState(typeof window === "undefined" ? "" : window.location.search));
   const handle = useEngine(canvasRef, { initial: urlState.initial });
   useUrlState(handle, urlState);
+  useEffect(() => {
+    useLayersStore.getState().hydrate({ visible: layerUrl.visible, config: layerUrl.config });
+  }, [layerUrl]);
   const onTimelineInset = useCallback((px: number) => handle?.setTimelineInset(px), [handle]);
   const view = useEngineStore((s) => s.view);
   const filter = useEngineStore((s) => s.filter);
@@ -157,7 +164,13 @@ export function OrbitalWatch() {
       <SatelliteSearch handle={handle} />
 
       {/* Scale & View Selector */}
-      <ViewControls onSelectView={(v) => void handle?.setView(v)} onToggleLayer={(id, v) => handle?.toggleLayer(id, v)} />
+      <ViewControls
+        onSelectView={(v) => void handle?.setView(v)}
+        onToggleLayer={(id, v) => handle?.toggleLayer(id, v)}
+        onOpacityPreview={(id, v) => handle?.setLayerOpacity?.(id, v)}
+      />
+
+      <EnvironmentalLayersController handle={handle} urlState={layerUrl} />
 
       {/* 3D Screen Projected Labels Target */}
       <LabelOverlay frames={handle?.frames ?? null} defs={[]} onPick={(k) => void handle?.pickLabel(k)} />

@@ -8,8 +8,11 @@ import { useEffect } from "react";
 import type { EngineHandle } from "@/engine/contract";
 import { ENVIRONMENTAL_LAYER_IDS } from "@/lib/layers/catalog";
 import { useLayersStore, type LayersStoreState } from "@/stores/layers-store";
-import type { ProviderFlags } from "@/types/layers";
+import type { EnvironmentalLayerId, ProviderFlags } from "@/types/layers";
 import { useLayerData } from "./useLayerData";
+
+/** Dev flags per layer (`?mockError=<id>` only fails that layer). Must be referentially stable. */
+export type LayerFlagsMap = Readonly<Record<EnvironmentalLayerId, ProviderFlags>>;
 
 function syncEngine(handle: EngineHandle, state: LayersStoreState, prev: LayersStoreState | null): void {
   for (const id of ENVIRONMENTAL_LAYER_IDS) {
@@ -21,14 +24,14 @@ function syncEngine(handle: EngineHandle, state: LayersStoreState, prev: LayersS
   }
 }
 
-export function useEnvironmentalLayers(handle: EngineHandle | null, flags: ProviderFlags): void {
+export function useEnvironmentalLayers(handle: EngineHandle | null, flags: LayerFlagsMap): void {
   useEffect(() => {
     if (!handle) return;
     syncEngine(handle, useLayersStore.getState(), null);
     return useLayersStore.subscribe((state, prev) => syncEngine(handle, state, prev));
   }, [handle]);
 
-  useLayerData("ozone", handle, flags);
-  useLayerData("pollution", handle, flags);
-  useLayerData("fires", handle, flags);
+  useLayerData("ozone", handle, flags.ozone);
+  useLayerData("pollution", handle, flags.pollution);
+  useLayerData("fires", handle, flags.fires);
 }

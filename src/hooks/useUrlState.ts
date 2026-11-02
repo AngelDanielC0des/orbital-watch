@@ -7,7 +7,10 @@
  */
 import { useEffect } from "react";
 import type { EngineHandle, EngineInitialState } from "@/engine/contract";
+import { ENVIRONMENTAL_LAYER_IDS } from "@/lib/layers/catalog";
+import { writeLayerParams } from "@/lib/layers/url-state";
 import { useEngineStore } from "@/stores/engine-store";
+import { useLayersStore } from "@/stores/layers-store";
 import type { SatelliteFilter, ViewMode } from "@/types/engine";
 
 export interface ParsedUrlState {
@@ -18,7 +21,7 @@ export interface ParsedUrlState {
 
 const VIEWS: readonly ViewMode[] = ["earth", "solar", "galaxy"];
 const FILTERS: readonly SatelliteFilter[] = ["all", "debris", "starlink", "projected"];
-const MANAGED_KEYS = ["view", "focus", "filter", "speed", "t", "sat", "night"] as const;
+const MANAGED_KEYS = ["view", "focus", "filter", "speed", "t", "sat", "night", "layers", "pollutant", "fires"] as const;
 const WRITE_THROTTLE_MS = 500;
 const MAX_ABS_SPEED = 1e7;
 
@@ -81,6 +84,13 @@ function buildQuery(base: string, pendingSat: string | null): string {
   const sel = s.selectedSatellite;
   if (sel) q.set("sat", String(sel.entry.omm.NORAD_CAT_ID));
   else if (pendingSat) q.set("sat", pendingSat);
+
+  const layers = useLayersStore.getState().layers;
+  writeLayerParams(q, {
+    visible: ENVIRONMENTAL_LAYER_IDS.filter((id) => layers[id].visible),
+    pollutant: layers.pollution.config.pollutant,
+    fireWindow: layers.fires.config.window,
+  });
 
   return q.toString();
 }
@@ -168,6 +178,19 @@ export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState)
       }
     });
 
+    const unsubscribeLayers = useLayersStore.subscribe((s, prev) => {
+      if (s.layers === prev.layers) return;
+      for (const id of ENVIRONMENTAL_LAYER_IDS) {
+        if (s.layers[id].visible !== prev.layers[id].visible) return schedule();
+      }
+      if (
+        s.layers.pollution.config.pollutant !== prev.layers.pollution.config.pollutant ||
+        s.layers.fires.config.window !== prev.layers.fires.config.window
+      ) {
+        schedule();
+      }
+    });
+
     trySelectSat();
     tryApplyFocus();
     schedule();
@@ -175,6 +198,7 @@ export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState)
     return () => {
       alive = false;
       unsubscribe();
+      unsubscribeLayers();
       if (timer !== null) clearTimeout(timer);
     };
   }, [handle, focus, sat, nightInitial, parsed.initial.view]);
