@@ -59,5 +59,9 @@ Real headed Chrome at **DPR 1.5** (Windows 150 %): 6/6 picks in 5 cases (hi/lo q
 2. One line in `src/engine/layers/registry.ts` (`ozone: createOzoneLayer`).
 3. Add the id to `DEFAULT_LAYERS` and a row in `HUD/LayerPanel.tsx`.
 
-## 6. How to run
+## 6. Deployment
+Vercel project `orbital-watch` (team angels-projects-42933b02), deployed from the CLI (`vercel deploy`) on 2026-11-02; the first deployment was auto-assigned to production: https://orbital-watch-sable.vercel.app/orbitalwatch (0 console errors, evidence `docs/design-references/vercel-prod.webp`). The project is **not** connected to the GitHub repo yet, so pushes do not deploy (`vercel git connect` would enable it). No env vars are set in Vercel (Stripe link / contact email empty by design).
+**Catalog source:** the engine uses the synthetic catalog by default and only fetches CelesTrak with `?data=celestrak` (read in `create-engine.ts`, inherited from the original). The live site therefore shows "catálogo sintético (demo)" unless that param is used. Decide whether production should default to the real catalog.
+
+## 7. How to run
 `npm install` · `npm run dev` (http://localhost:3000/orbitalwatch; first load ~30 s with webpack; reload after editing engine files, Fast Refresh keeps the old engine) · `npm run check` · `npm run start` after a build. Deep links: `?view=earth|solar|galaxy&focus=<body>&filter=&speed=&t=&sat=<NORAD>&night=1&quality=lo|hi&debug`.

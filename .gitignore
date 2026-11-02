@@ -50,3 +50,5 @@ temp/
 
 # Playwright MCP logs/snapshots (feed the dev rebuild loop)
 .playwright-mcp/
+
+.vercel
