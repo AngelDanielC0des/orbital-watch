@@ -1,6 +1,7 @@
 import type { Object3D, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import type { QualityTier } from "@/engine/config";
 import type { BodyDef, SelectedSatelliteState } from "./orbital";
+import type { LayerDataPayload } from "./layers";
 
 export type ViewMode = "earth" | "solar" | "galaxy";
 export type SatelliteFilter = "all" | "debris" | "starlink" | "projected";
@@ -112,5 +113,18 @@ export interface EngineCommandFacade {
   flyToPlace(place: { name: string; center: Vector3; distance: number }): Promise<void>;
   dismissHint(): void;
   toggleLayer(layerId: string, visible: boolean): void;
+  /** ADR-15: overlay opacity 0–1 of a `DataLayer`; no-op for other layers. */
+  setLayerOpacity?(layerId: string, opacity: number): void;
+  /** ADR-15: hands decoded data to a `DataLayer` (raster images are transferred and closed by the engine). */
+  setLayerData?(layerId: string, payload: LayerDataPayload): void;
+  /** ADR-15: drops the data of a `DataLayer` and frees its GPU resources (layer stays registered). */
+  clearLayerData?(layerId: string): void;
   dispose(): void;
+}
+
+/** ADR-15: a layer fed with external data through the facade. Never fetches by itself. */
+export interface DataLayer extends ILayer {
+  setOpacity(opacity: number): void;
+  setData(payload: LayerDataPayload): void;
+  clearData(): void;
 }

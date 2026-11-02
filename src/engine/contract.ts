@@ -9,7 +9,8 @@ import type { FrameBus } from "@/lib/frame-bus";
 import type { EngineCommandFacade, ILayer, LayerInitContext, SatelliteFilter, ViewMode } from "@/types/engine";
 import type { BodyDef, CategoryId, SelectedSatelliteState, Sgp4Readout } from "@/types/orbital";
 
-export type { EngineCommandFacade, ILayer, LayerInitContext, LayerUpdateContext, SatelliteFilter, ViewMode } from "@/types/engine";
+export type { DataLayer, EngineCommandFacade, ILayer, LayerInitContext, LayerUpdateContext, SatelliteFilter, ViewMode } from "@/types/engine";
+export type { LayerDataPayload } from "@/types/layers";
 
 export type QualityTier = LayerInitContext["tier"];
 
