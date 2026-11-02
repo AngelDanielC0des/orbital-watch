@@ -204,6 +204,8 @@ export interface HeatmapPayload {
   /** Stride 4: lat, lon, frp (MW), day (1 = day, 0 = night). Sorted by FRP desc. */
   hotspots: Float32Array;
   hotspotCount: number;
+  /** Heat ramp for the density LUT (same stops as the legend); the engine keeps its default when absent. */
+  scale?: readonly ColorStop[];
   date: string;
 }
 

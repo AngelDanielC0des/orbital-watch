@@ -7,7 +7,7 @@ import { GeoCache, dedupe } from "@/lib/layers/geo-cache.service";
 import { fetchEnvelope, withFlags } from "@/lib/layers/http";
 import { err, layerError, ok } from "@/lib/layers/result";
 import { inRange, isFiniteNumber, isRecord, isString } from "@/lib/layers/validate";
-import { FIRE_WINDOWS, HOTSPOT_CAP } from "./fires-scale";
+import { FIRE_WINDOWS, HOTSPOT_CAP, FIRE_HEAT_STOPS } from "./fires-scale";
 
 const COLS = 720;
 const ROWS = 360;
@@ -71,6 +71,7 @@ export function toHeatmapPayload(dto: FiresDTO, opts: { cap: number; dayNight: "
     intensity,
     hotspots: out.slice(0, count * 4),
     hotspotCount: count,
+    scale: FIRE_HEAT_STOPS,
     date: dto.acqRange?.to ?? dto.generatedAt,
   };
 }
