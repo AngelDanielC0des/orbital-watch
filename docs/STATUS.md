@@ -54,10 +54,12 @@ Real headed Chrome at **DPR 1.5** (Windows 150 %): 6/6 picks in 5 cases (hi/lo q
 8. Cleanup of template leftovers: `CONTRIBUTING.md`, `SECURITY.md`, `docker-compose.yml`, `.github/FUNDING.yml`, `.agents/` and `.claude/commands/clone-website.md` still talk about the cloner template.
 9. Mobile polish: status text wraps to two lines at 390 px; Hint dismissal relies on the canvas `pointerdown` in React.
 
-**C. Add the ozone layer (3 steps)**
-1. `src/engine/layers/ozone-layer.ts` copying `earth-layer.ts` (K4: `ILayer` wrapper, `dispose()` frees geometry/material/textures).
-2. One line in `src/engine/layers/registry.ts` (`ozone: createOzoneLayer`).
-3. Add the id to `DEFAULT_LAYERS` and a row in `HUD/LayerPanel.tsx`.
+**C. Capas ambientales (ozono, calidad del aire, incendios)**
+Implementadas en la rama `feat/environmental-layers`; guía técnica en [`docs/layers/README.md`](layers/README.md). Estado:
+1. Hecho: tipos (`src/types/layers.ts`), catálogo, rutas `/api/orbital/{ozone,pollution,fires}`, servicios del cliente, `useLayerData`, store, cajón de capas, deep links, instantáneas y fallbacks.
+2. Pendiente: mediciones reales de rendimiento (`.agent/STATUS.md` aún no tiene números de esta fase; los tamaños de GPU del plan son estimaciones), validación con DPR > 1 y en un dispositivo móvil real, y decidir la licencia de Open-Meteo si el sitio deja de ser no comercial.
+3. Deuda conocida: los tres ids están fijados a mano en `useEnvironmentalLayers`, `layers-store` (`freshLayers`, `patchLayer`, `patchConfig`, `hydrate`), `LayerRow`/`ActiveLegendStrip`/`LayerEmptyState`; añadir una capa nueva exige extenderlos (ver "Cómo añadir una capa nueva en 5 pasos"). `RasterOverlayLayer` usa un radio fijo (1.009).
+4. Claves opcionales de servidor sin usar: `FIRMS_MAP_KEY`, `OPENAQ_API_KEY` (`.env.example`).
 
 ## 6. Deployment
 Vercel project `orbital-watch` (team angels-projects-42933b02), deployed from the CLI (`vercel deploy`) on 2026-11-02; the first deployment was auto-assigned to production: https://orbital-watch-sable.vercel.app/orbitalwatch (0 console errors, evidence `docs/design-references/vercel-prod.webp`). The project is **not** connected to the GitHub repo yet, so pushes do not deploy (`vercel git connect` would enable it). No env vars are set in Vercel (Stripe link / contact email empty by design).

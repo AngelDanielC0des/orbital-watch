@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Capas ambientales (Unreleased)
+
+#### Added
+- Three environmental data layers on the globe, hidden by default: ozone total column (NASA GIBS, raster), surface air quality (Open-Meteo CAMS, points) and active fires (NASA FIRMS VIIRS, density grid plus hotspots). See `docs/layers/README.md`.
+- Route Handlers `GET /api/orbital/ozone`, `/pollution` and `/fires` with allow-listed params, in-memory memo with in-flight de-duplication, `Cache-Control` (`s-maxage` + `stale-while-revalidate`) and bundled snapshot fallbacks.
+- Engine overlays (`RasterOverlayLayer`, `PointsOverlayLayer`, `HeatmapLayer`) behind the optional facade members `setLayerData`, `setLayerOpacity` and `clearLayerData` (ADR-15); at most 4 added draw calls, hotspot caps 2 000 (`hi`) / 800 (`lo`), ozone texture 4096 (`hi`) / 2048 (`lo`).
+- Client services and `useLayerData` / `useEnvironmentalLayers` (abort, refresh, backoff 1-2-4 min, hidden-tab pause), layers store, layers drawer with legends, loading/error/empty states, data-source and last-updated badges, attribution footer.
+- Deep links `?layers=ozone,pollution,fires&pollutant=<id>&fires=24h|48h|7d` and dev flags `?mockError=<id>` and `?mock=snapshot`.
+- Scripts `scripts/snapshot-layers.mjs` (regenerate demo snapshots) and `scripts/gen-legend.mjs` (ozone legend from the GIBS colormap).
+
+#### Changed
+- `.env.example` documents the optional, currently unused `FIRMS_MAP_KEY` and `OPENAQ_API_KEY`.
+
 ### Changed
 - OrbitalWatch: engine decoupled from the React UI (`src/engine/`, typed `EngineHandle`/`EngineEvents`, `FrameBus` for 60 Hz data, zustand store for low-frequency state); legacy `main.ts`/`hud.ts`/`space-ui.ts`/`places.ts`/`donate.ts` removed.
 - `dev` and `build` use `--webpack` (needed by `satellite.js` WASM handling in `next.config.ts`); `npm run check` now includes vitest.
