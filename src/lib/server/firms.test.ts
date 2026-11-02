@@ -194,6 +194,22 @@ describe("fetchFires", () => {
     }
   });
 
+  it("treats an empty 200 body as a failed sensor (Vercel regression)", async () => {
+    const inits: (RequestInit | undefined)[] = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      inits.push(init);
+      if (String(input).includes("J2_VIIRS")) return csvResponse("");
+      return csvResponse(CSV);
+    };
+    const result = await fetchFires("24h", { fetchImpl });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sources).toEqual(["NOAA-20"]);
+      expect(result.value.total).toBe(3);
+    }
+    expect(inits.every((i) => i?.cache === "no-store")).toBe(true);
+  });
+
   it("succeeds partially when one fetch throws", async () => {
     const fetchImpl: typeof fetch = async (input) => {
       if (String(input).includes("J1_VIIRS")) throw new TypeError("network down");

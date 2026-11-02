@@ -262,7 +262,7 @@ export async function parseCsvStream(
   stream: ReadableStream<Uint8Array>,
   acc: FirmsAccumulator,
   maxBytes: number = 40 * 1024 * 1024,
-): Promise<void> {
+): Promise<number> {
   acc.beginFile();
   const reader = stream.getReader();
   const decoder = new TextDecoder("utf-8");
@@ -286,6 +286,7 @@ export async function parseCsvStream(
     }
     carry += decoder.decode();
     if (carry !== "") acc.pushLine(carry);
+    return bytes;
   } catch (cause) {
     await reader.cancel().catch(() => undefined);
     throw cause;
@@ -294,7 +295,8 @@ export async function parseCsvStream(
   }
 }
 
-type NextInit = RequestInit & { next?: { revalidate?: number } };
+/** Shorter than the 13-column header line: the download is empty or truncated. */
+const MIN_CSV_BYTES = 64;
 
 /**
  * Fetches both VIIRS sensors for `window` and bins them into one DTO. Partial success when a single
@@ -306,7 +308,9 @@ export async function fetchFires(
 ): Promise<Result<FiresDTO, LayerError>> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const files = FIRMS_FILES[window];
-  const init: NextInit = { next: { revalidate: 3600 }, signal: AbortSignal.timeout(window === "7d" ? 55000 : 25000) };
+  // `no-store`: the CSVs (4.5–29 MB) exceed the 2 MB Data Cache limit; on Vercel a cached/teed body came back
+  // empty for the second sensor. The route memoises the binned DTO instead.
+  const init: RequestInit = { cache: "no-store", signal: AbortSignal.timeout(window === "7d" ? 55000 : 25000) };
   const bodies = await Promise.all(
     files.map(async (file): Promise<Result<ReadableStream<Uint8Array>, LayerError>> => {
       try {
@@ -331,8 +335,10 @@ export async function fetchFires(
       continue;
     }
     try {
-      await parseCsvStream(body.value, acc);
-      sources.push(files[i].sensor);
+      const bytes = await parseCsvStream(body.value, acc);
+      // A real file always has at least the header line; an empty body is a failed download, not "no fires".
+      if (bytes < MIN_CSV_BYTES) failures.push(`${files[i].sensor}: empty body`);
+      else sources.push(files[i].sensor);
     } catch (cause) {
       failures.push(`${files[i].sensor}: ${cause instanceof Error ? cause.message : String(cause)}`);
     }
