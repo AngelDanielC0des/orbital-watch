@@ -1,0 +1,11 @@
+# T20 — Shareable URL state (deep links)
+Tier: sonnet5-medium · Wave: 6 · Depends: T16, T07
+
+**Target**: new `src/hooks/useUrlState.ts`; `OrbitalWatch.tsx` (call the hook; pass `initial` to `useEngine`).
+**Change**: on mount parse `?view=earth|solar|galaxy&focus=<body key>&filter=<SatelliteFilter>&speed=<n>&t=<ISO or ms>&sat=<NORAD>&night=1` → `initial` for `useEngine` (`view`, `filter`, `nightMode`, `simMs`, `speed`) plus `focus` applied via `handle.setView(view, focus)` once the handle exists, and `sat` via `handle.findSatellites(norad, 1)` → `selectSatellite` once `catalogSource` is set (store). Writes back: subscribe to the store (`view, focusBody, filter, nightMode, time.speed, selectedSatellite`) and `history.replaceState` a canonical query, throttled 500 ms; omit default values; never write `t` while live (only when scrubbed, rounded to the minute). A "Copiar enlace" button in `HUDHeader` copies `location.href` (`navigator.clipboard`, fallback: select text) with a 2 s "Copiado" status (`role="status"`).
+**Pattern**: `useEngine.ts` for effect/cleanup discipline; store selectors as in `HUD/FilterBar.tsx`.
+**Constraints**: no engine edits; `window/location` only inside effects (SSR); no `useSearchParams` from Next (would force client-side bailout of the whole route — read `node_modules/next/dist/docs/` if in doubt); invalid values are ignored silently.
+**Ownership**: `src/hooks/useUrlState.ts`, `OrbitalWatch.tsx` (hook call + `initial`), `HUD/HUDHeader.tsx` (copy-link button).
+**Acceptance**: `npx tsc --noEmit`; `npx eslint src/hooks src/components/sites/orbitalwatch`; `/orbitalwatch?view=solar&focus=mars` opens on Mars; `?sat=25544` follows the ISS after load; changing filter updates the URL without adding history entries (back button still leaves the page).
+**HINTS**: `EngineInitialState` in `src/engine/contract.ts`; `useEngine` reads options once at mount (pass `initial` before the first render: parse synchronously in a `useState` initializer guarded by `typeof window !== "undefined"`).
+**Pitfalls**: `pushState` instead of `replaceState` (history spam); writing the URL at 60 Hz from `t` (use the throttled store tick, never the FrameBus); hydration mismatch (render identical markup on server and first client paint; apply URL-derived state in effects/initializers only).

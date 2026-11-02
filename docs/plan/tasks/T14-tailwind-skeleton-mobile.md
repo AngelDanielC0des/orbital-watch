@@ -1,0 +1,11 @@
+# T14 — Tailwind migration, loader skeleton, 390 px collapsible panels
+Tier: sonnet5-medium · Wave: 5 · Depends: T11
+
+**Target**: `src/components/sites/orbitalwatch/orbitalwatch.css` (176 l), `src/app/globals.css` (129 l), `HUD/*.tsx` classNames, `HUD/Loader.tsx`.
+**Change**: move layout/spacing/colour rules into Tailwind utilities on the components **without any visual change** (compare against `docs/design-references/orbitalwatch-source-mobile-390.png` and the desktop screenshot in `docs/design-references/`). Keep in `orbitalwatch.css` only what is shader/animation-coupled: `.label` glow, `#warp`, loader bar keyframes, `is-alarm` pulses (ADR-8). `Loader`: skeleton (pulsing HUD placeholders) while `loading.isDone === false`. At ≤390 px: SatellitePanel/BodyPanel become collapsible sheets anchored bottom (`details`-like toggle in React state) that never cover the globe centre; Timeline stays visible; bottom-anchored elements add `padding-bottom: env(safe-area-inset-bottom)`; tap targets ≥ 44 px. `Loader` gets `role="progressbar" aria-valuenow` and `aria-live="polite"` text. Dark, high-contrast tokens from `globals.css` (oklch); use `cn()`.
+**Pattern**: existing shadcn/Tailwind v4 setup (`src/lib/utils.ts` `cn`), `HUD/FilterBar.tsx` for class style.
+**Constraints**: no engine/store edits; no new dependencies; no inline styles except dynamic values; no personal aesthetic changes.
+**Ownership**: `orbitalwatch.css`, `globals.css`, `HUD/*.tsx` classNames only (not their logic), `HUD/Loader.tsx`.
+**Acceptance**: `npx tsc --noEmit`; `npx eslint src/components/sites/orbitalwatch src/app`; Playwright screenshot at 1440×900 and 390×844 vs the design references: no layout regressions; at 390 px the globe centre is unobstructed with a satellite selected.
+**HINTS**: ids/classes consumed by CSS: context map §DOM contract; references: `docs/design-references/orbitalwatch-*-mobile-390.png`.
+**Pitfalls**: Tailwind v4 has no `tailwind.config.js` (tokens live in `@theme` in `globals.css`); purging classes built dynamically (`cn()` with full literal class names only); changing `.label` positioning rules the overlay relies on (`position:absolute; transform` origin); breaking `#scene` full-bleed sizing (`canvas` must stay 100vw×100dvh; the engine reads `clientWidth/Height`).

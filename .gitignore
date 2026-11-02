@@ -47,3 +47,8 @@ next-env.d.ts
 
 # Local temp files
 temp/
+
+# Playwright MCP logs/snapshots (feed the dev rebuild loop)
+.playwright-mcp/
+
+.vercel

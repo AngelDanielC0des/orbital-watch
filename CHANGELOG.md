@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- OrbitalWatch: engine decoupled from the React UI (`src/engine/`, typed `EngineHandle`/`EngineEvents`, `FrameBus` for 60 Hz data, zustand store for low-frequency state); legacy `main.ts`/`hud.ts`/`space-ui.ts`/`places.ts`/`donate.ts` removed.
+- `dev` and `build` use `--webpack` (needed by `satellite.js` WASM handling in `next.config.ts`); `npm run check` now includes vitest.
+
+### Added
+- `ILayer` wrappers (earth, sky, solar, galaxy, satellites, track, places, hover), layer panel, satellite search, shareable URL state (`?view&focus&filter&speed&t&sat&night`), engine error overlay, vitest suite, hover marker with pulse.
+
 ### Fixed
+- Picking selected the wrong object when devicePixelRatio > 1 (viewport scaled twice) and had a sub-pixel rect/size mismatch.
+- NaN bounding-sphere console error from the satellites point cloud.
 - Count the README token badge in CI so it reflects the current default branch instead of a stale hosted count.
 
 ## [0.6.1] - 2026-10-05

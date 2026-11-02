@@ -1,20 +1,34 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { JetBrains_Mono, Saira_Semi_Condensed } from "next/font/google";
+import { SITE_NAME } from "@/engine/config";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const saira = Saira_Semi_Condensed({
+  variable: "--font-saira",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  title: `${SITE_NAME} 3D: satélites y basura espacial en tiempo real`,
+  description:
+    "Visor 3D de satélites y basura espacial en órbita terrestre, con escalas al sistema solar y la Vía Láctea. Propagación SGP4 en el navegador.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#05080f",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({
@@ -23,11 +37,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="es" className={`${saira.variable} ${jetbrains.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }
