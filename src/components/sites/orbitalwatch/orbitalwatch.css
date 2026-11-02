@@ -178,3 +178,8 @@ body.view-earth .filters{right:var(--gutter)}
 @media (prefers-reduced-motion:reduce){*,:before,:after{transition-duration:.01ms!important}
 }
 
+
+/* Active legend strip */
+@media (max-width:859px){body:has([role="dialog"][aria-label="Capas"]) .legend-strip{display:none}}
+@media (prefers-reduced-motion:no-preference){.legend-strip__skeleton{background:linear-gradient(90deg,var(--rule) 25%,var(--rule-strong) 50%,var(--rule) 75%);background-size:200% 100%;animation:legend-shimmer 1.4s linear infinite}@keyframes legend-shimmer{to{background-position:-200% 0}}}
+/* End active legend strip */

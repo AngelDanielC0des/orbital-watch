@@ -13,6 +13,7 @@ import { FilterBar } from "./HUD/FilterBar";
 import { SatellitePanel } from "./HUD/SatellitePanel";
 import { BodyPanel } from "./HUD/BodyPanel";
 import { Timeline } from "./HUD/Timeline";
+import { ActiveLegendStrip } from "./HUD/layers/ActiveLegendStrip";
 import { Loader } from "./HUD/Loader";
 import { Hint } from "./HUD/Hint";
 import { EngineErrorOverlay, useIsFatalEngineError } from "./HUD/EngineErrorOverlay";
@@ -171,6 +172,8 @@ export function OrbitalWatch() {
       />
 
       <EnvironmentalLayersController handle={handle} urlState={layerUrl} />
+
+      <ActiveLegendStrip />
 
       {/* 3D Screen Projected Labels Target */}
       <LabelOverlay frames={handle?.frames ?? null} defs={[]} onPick={(k) => void handle?.pickLabel(k)} />
