@@ -31,7 +31,7 @@ export const LAYER_CATALOG = {
     source: {
       name: "NASA GIBS",
       url: "https://gibs.earthdata.nasa.gov",
-      product: "OMI_Ozone_TOMS_Total_Column",
+      product: "OMI (Aura) · TOMS",
     },
     attribution: ATTRIBUTION.gibs,
     defaultOpacity: 0.75,

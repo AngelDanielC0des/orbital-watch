@@ -164,6 +164,7 @@ export function LayersDrawer({ onToggleLayer, onOpacityPreview = NOOP_PREVIEW }:
             role="dialog"
             aria-modal="false"
             aria-label="Capas"
+            data-layers-ui=""
             data-layers-sheet={snap}
             data-dragging={dragHeight !== null ? "true" : undefined}
             style={dragHeight !== null && window.innerWidth < DESKTOP_MIN_PX ? { height: dragHeight } : undefined}

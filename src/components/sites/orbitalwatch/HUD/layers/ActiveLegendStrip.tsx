@@ -69,8 +69,9 @@ export function ActiveLegendStrip() {
 
   return (
     <aside
+      data-layers-ui=""
       className="legend-strip fixed left-[var(--gutter)] z-[5] w-[320px] max-w-[calc(100vw-24px)] rounded-[10px] border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[var(--ink)] backdrop-blur-md"
-      style={{ bottom: `calc(max(var(--gutter), env(safe-area-inset-bottom)) + ${timelineH}px + 10px)` }}
+      style={{ bottom: `calc(max(var(--gutter), env(safe-area-inset-bottom)) + ${timelineH}px + 36px)` }}
       aria-label={`Leyenda de ${title}`}
     >
       <div className="mb-1.5 flex items-center gap-1.5">

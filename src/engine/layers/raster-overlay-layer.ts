@@ -32,10 +32,11 @@ export class RasterOverlayLayer extends OverlayLayerBase {
   private readonly mesh: Mesh<SphereGeometry, ShaderMaterial>;
   private texture: Texture | null = null;
 
-  constructor(id: string, name: string, host: ILayer | undefined, opacity: number, renderer: WebGLRenderer, segments: number) {
+  /** `radius` must differ from other overlays (clouds 1.006, fire grid 1.0095, points 1.011) to avoid z-fighting. */
+  constructor(id: string, name: string, host: ILayer | undefined, opacity: number, renderer: WebGLRenderer, segments: number, radius = OZONE_RADIUS) {
     super(id, name, host, opacity);
     this.renderer = renderer;
-    this.geometry = new SphereGeometry(OZONE_RADIUS, segments, segments / 2);
+    this.geometry = new SphereGeometry(radius, segments, segments / 2);
     this.material = new ShaderMaterial({
       uniforms: {
         uMap: { value: null },

@@ -3,7 +3,9 @@
 @supports (color:lab(0% 0 0)){:root{--void:lab(1.17414% -.137478 -2.62639);--panel:lab(3.00443% -.761598 -5.81415/.9);--panel-solid:lab(4.38678% -1.09026 -7.26594);--rule:lab(79.7453% -22.6327 -15.0393/.2);--rule-strong:lab(79.8912% -28.0562 -18.6943/.45);--ink:lab(94.2391% -2.12497 -2.92363);--ink-dim:lab(72.2687% -6.19328 -8.67682);--signal:lab(84.8896% -38.5845 -20.5374);--signal-ink:lab(5.4083% -6.10417 -8.74879);--alarm:lab(60.713% 68.9928 46.2455);--starlink:lab(91.9748% -7.23523 -12.3337);--payload:lab(81.6622% 9.84526 61.7469);--projected:lab(88.0571% -41.5526 52.9253)}
 }
 body.is-alarm{--accent:var(--alarm)}
-*,:before,:after{box-sizing:border-box;margin:0;padding:0}
+*,:before,:after{box-sizing:border-box}
+/* The unlayered reset beats Tailwind's layered utilities; the layers UI opts out (Tailwind preflight still resets it). :where keeps specificity 0. */
+:where(:not([data-layers-ui],[data-layers-ui] *)),:where(:not([data-layers-ui],[data-layers-ui] *)):before,:where(:not([data-layers-ui],[data-layers-ui] *)):after{margin:0;padding:0}
 html,body{background:var(--void);height:100%;color:var(--ink);font-family:var(--font-ui);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;font-size:15px;line-height:1.4;overflow:hidden}
 button{font:inherit;color:inherit;cursor:pointer;background:0 0;border:0}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
