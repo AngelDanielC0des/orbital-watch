@@ -4,10 +4,10 @@ import React, { useEffect, useId, useState } from "react";
 import { Flame, Info, RefreshCw, Wind, CircleDashed } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getEnvironmentalMetadata } from "@/lib/layers/catalog";
+import { FRESHNESS_COLOR, FRESHNESS_LABEL, freshnessOf } from "@/lib/layers/freshness";
 import { FIRES_LEGEND } from "@/lib/layers/fires/fires-scale";
 import { OZONE_LEGEND } from "@/lib/layers/ozone/legend-ozone";
 import { POLLUTANT_SCALES } from "@/lib/layers/pollution/pollutant-scales";
-import { useEngineStore } from "@/stores/engine-store";
 import { useLayersStore } from "@/stores/layers-store";
 import type { EnvironmentalLayerId, LegendSpec } from "@/types/layers";
 import { FireWindowSelector } from "./FireWindowSelector";
@@ -33,26 +33,7 @@ const ICONS: Record<EnvironmentalLayerId, LucideIcon> = {
   fires: Flame,
 };
 
-const DAY_MS = 86_400_000;
 const REFRESH_COOLDOWN_MS = 60_000;
-
-type Tone = "fresh" | "stale" | "demo" | "error" | "none";
-
-const TONE_COLOR: Record<Tone, string> = {
-  fresh: "var(--signal)",
-  stale: "var(--payload)",
-  demo: "var(--ink-dim)",
-  error: "var(--alarm)",
-  none: "var(--ink-dim)",
-};
-
-const TONE_TEXT: Record<Tone, string> = {
-  fresh: "Datos recientes",
-  stale: "Datos con retraso",
-  demo: "Demostración",
-  error: "Error",
-  none: "Sin datos",
-};
 
 export function LayerRow({ id, disabled, onOpacityPreview }: LayerRowProps) {
   const meta = getEnvironmentalMetadata(id);
@@ -65,7 +46,6 @@ export function LayerRow({ id, disabled, onOpacityPreview }: LayerRowProps) {
   const fetchedAt = useLayersStore((s) => s.layers[id].fetchedAt);
   const isFallback = useLayersStore((s) => s.layers[id].isFallback);
   const pollutant = useLayersStore((s) => s.layers.pollution.config.pollutant);
-  const scrubbed = useEngineStore((s) => Math.abs(s.time.daysOffset) > 2);
   const [infoOpen, setInfoOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -77,14 +57,7 @@ export function LayerRow({ id, disabled, onOpacityPreview }: LayerRowProps) {
   const loading = status === "loading";
   const cooling = fetchedAt !== null && now - fetchedAt < REFRESH_COOLDOWN_MS;
 
-  let tone: Tone = "none";
-  if (status === "error") tone = "error";
-  else if (isFallback) tone = "demo";
-  else if (dataDate !== null) {
-    const ms = Date.parse(dataDate);
-    const age = Number.isFinite(ms) ? now - ms : Infinity;
-    tone = id === "pollution" || age > 2 * DAY_MS ? "stale" : "fresh";
-  }
+  const tone = freshnessOf({ status, dataDate, isFallback, isModel: id === "pollution", nowMs: now });
 
   const legend: LegendSpec =
     id === "ozone" ? OZONE_LEGEND : id === "fires" ? FIRES_LEGEND : POLLUTANT_SCALES[pollutant].legend;
@@ -97,7 +70,8 @@ export function LayerRow({ id, disabled, onOpacityPreview }: LayerRowProps) {
       <div className="flex items-center gap-2">
         <span
           className="size-2 shrink-0 rounded-full"
-          style={{ backgroundColor: TONE_COLOR[tone] }}
+          style={{ backgroundColor: FRESHNESS_COLOR[tone] }}
+          title={FRESHNESS_LABEL[tone]}
           aria-hidden="true"
         />
         <Icon className="size-4 shrink-0 text-[var(--ink-dim)]" aria-hidden="true" />
@@ -110,9 +84,6 @@ export function LayerRow({ id, disabled, onOpacityPreview }: LayerRowProps) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pl-4">
         <DataSourceBadge id={id} />
         <LastUpdatedBadge id={id} />
-        <span className="text-[11.5px]" style={{ color: TONE_COLOR[tone] }}>
-          {TONE_TEXT[tone]}
-        </span>
         <span className="ml-auto flex items-center">
           <button
             type="button"
@@ -152,10 +123,9 @@ export function LayerRow({ id, disabled, onOpacityPreview }: LayerRowProps) {
       {infoOpen && (
         <div id={infoId} className="flex flex-col gap-2 pl-4 text-[12.5px] text-[var(--ink-dim)]">
           <p className="m-0">{meta.description}</p>
-          <LayerLegend legend={legend} />
+          <LayerLegend legend={legend} categories={id === "pollution" ? POLLUTANT_SCALES[pollutant].categories : undefined} />
           <p className="m-0">{meta.latencyNote}</p>
           {isFallback && <p className="m-0">Instantánea de demostración.</p>}
-          {scrubbed && <p className="m-0 text-[var(--payload)]">La capa no sigue la línea temporal</p>}
         </div>
       )}
     </li>
