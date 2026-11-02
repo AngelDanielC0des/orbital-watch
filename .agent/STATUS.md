@@ -76,3 +76,8 @@ Checklist (✅ verified · ⚠ partial · ⛔ unverifiable here):
 6. Performance — ✅ +4 draw calls · ✅ 2 000 hotspots on hi (800 cap on lo by service) · ✅ ozone 4096 on hi · ✅ slider engine-on-input, store debounced 150 ms · ✅ toggle spam de-duplicated · ✅ hidden tab: timers mark reload due and wait for `visibilitychange` (code review; not observed) · ⛔ fps on real GPU / mobile lo (headless software GL: 26–28 fps with or without layers) · ✅ payloads: ozone JSON < 1 KB; pollution ~15 KB gzip; fires 24 h ~52 KB gzip.
 
 Open items: real-GPU fps on desktop/mobile; offline DevTools run; 7 d live fetch on Vercel (maxDuration 60); NOAA-21/OMPS-NOAA ozone switch when GIBS publishes it; WAQI stays rejected.
+
+### Deploy (2026-11-02, user-authorised push + production)
+- Pushed `feat/environmental-layers` to origin. Preview 1 (`orbital-watch-m6na55xur…`) exposed a Vercel-only bug: fires `total` 54 670 = NOAA-20 rows only while NOAA-21 was listed in `sources` (the second CSV body came back empty). Fixed in two commits: `cache: "no-store"` + empty-body guard (made the failure honest), then sequential download/parse per sensor with its own timeout (fixed it). Preview 3 (`orbital-watch-1mxn0xu2v…`): total 111 188, sources NOAA-20 + NOAA-21.
+- Production `vercel deploy --prod` → https://orbital-watch-sable.vercel.app (deployment `orbital-watch-1k7c4bf05…`). Checked with Playwright: `/orbitalwatch?layers=ozone,pollution,fires` 0 console errors, drawer dates 29 oct (ozone) / 2 nov 13:00 UTC (CAMS) / 2 nov 11:12 UTC (FIRMS), fires total 116 452; fires 24 h 53 KB gzip at the CDN. Evidence `docs/design-references/layers-vercel-prod.webp`. Rollback: `vercel rollback`.
+- Vercel returns `Cache-Control: public` to clients (it consumes `s-maxage` at the edge) — expected.

@@ -62,7 +62,7 @@ Implementadas en la rama `feat/environmental-layers`; guía técnica en [`docs/l
 4. Claves opcionales de servidor sin usar: `FIRMS_MAP_KEY`, `OPENAQ_API_KEY` (`.env.example`).
 
 ## 6. Deployment
-Vercel project `orbital-watch` (team angels-projects-42933b02), deployed from the CLI (`vercel deploy`) on 2026-11-02; the first deployment was auto-assigned to production: https://orbital-watch-sable.vercel.app/orbitalwatch (0 console errors, evidence `docs/design-references/vercel-prod.webp`). The project is **not** connected to the GitHub repo yet, so pushes do not deploy (`vercel git connect` would enable it). No env vars are set in Vercel (Stripe link / contact email empty by design).
+Vercel project `orbital-watch` (team angels-projects-42933b02), deployed from the CLI (`vercel deploy`) on 2026-11-02; the first deployment was auto-assigned to production: https://orbital-watch-sable.vercel.app/orbitalwatch; environmental layers deployed to production on 2026-11-02 from `feat/environmental-layers` (evidence `docs/design-references/layers-vercel-prod.webp`) (0 console errors, evidence `docs/design-references/vercel-prod.webp`). The project is **not** connected to the GitHub repo yet, so pushes do not deploy (`vercel git connect` would enable it). No env vars are set in Vercel (Stripe link / contact email empty by design).
 **Catalog source:** the engine uses the synthetic catalog by default and only fetches CelesTrak with `?data=celestrak` (read in `create-engine.ts`, inherited from the original). The live site therefore shows "catálogo sintético (demo)" unless that param is used. Decide whether production should default to the real catalog.
 
 ## 7. How to run
