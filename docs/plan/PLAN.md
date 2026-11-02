@@ -66,6 +66,7 @@ Deleted at the end (T11): `E/main.ts hud.ts space-ui.ts places.ts donate.ts cata
 - **ADR-12 Stubs with final props**: `LabelOverlay`/`PlaceSearch` exist as stubs so the shell mounts them in wave 2 and wave-3 workers never share `OrbitalWatch.tsx`.
 - **ADR-13 Tests in the gate**: vitest covers the pure modules (frame bus, bridge, projector); `npm run check` runs them (T18).
 - **ADR-14 Shareable state**: URL query is the serialisation of low-frequency store state (`replaceState`, throttled); never from the FrameBus (T20).
+- **ADR-15 Environmental data layers**: ozone/pollution/fires are `ILayer`s that also implement `DataLayer` (`setOpacity`, `setData(LayerDataPayload)`, `clearData`). The facade gains three **optional** members only — `setLayerOpacity`, `setLayerData`, `clearLayerData` — delegating to `LayerManager.getDataLayer(id)`. Layers are created at boot hidden (`visible: false`), ride on the Earth group, rotate with `gmstRad`, and never fetch: data comes from `src/lib/layers/*` services via `useLayerData` and enters only through `setLayerData`. No `removeLayer`, no new `LayerUpdateContext` fields.
 
 ## 4. Risks
 | Risk | Prob. | Mitigation |
