@@ -87,7 +87,7 @@ describe("ozone provider", () => {
     const r = await provider().load({ product: "OMI_TOMS" }, ctx());
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.value).toMatchObject({ dataDate: "2026-10-29", fetchedAt: 1234, isFallback: false, source: descriptor.layer, empty: false });
+    expect(r.value).toMatchObject({ dataDate: "2026-10-29", fetchedAt: 1234, isFallback: false, source: "OMI (Aura) · TOMS", empty: false });
     expect(r.value.payload).toMatchObject({ kind: "raster", flipped: true, date: "2026-10-29" });
   });
 

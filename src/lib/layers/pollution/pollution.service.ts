@@ -105,7 +105,7 @@ export function createPollutionProvider(deps: PollutionProviderDeps = {}): DataP
       if (flags.mockError || (code !== "network" && code !== "upstream")) return envelope;
       const snapshot = await fetchSnapshot("pollution", signal, isPollutionDTO);
       if (!snapshot.ok) return envelope;
-      const meta: ApiMeta = { source: "CAMS (Open-Meteo)", dataDate: snapshot.value.data.time, fetchedAt: new Date(now()).toISOString(), fallback: true };
+      const meta: ApiMeta = { source: "CAMS", dataDate: snapshot.value.data.time, fetchedAt: new Date(now()).toISOString(), fallback: true };
       const value: CachedPollution = { dto: snapshot.value.data, meta, fromSnapshot: true };
       snapshotCache.set(key, value);
       return ok({ ...value, fetchedAt: now() });
@@ -129,7 +129,7 @@ export function createPollutionProvider(deps: PollutionProviderDeps = {}): DataP
         const { dto, meta, fetchedAt, fromSnapshot } = loaded.value;
         const payload = toPointsPayload(dto, config.pollutant);
         const empty = !dto.points.some((point) => Number.isFinite(point[config.pollutant]));
-        return ok({ payload, dataDate: dto.time, fetchedAt, isFallback: meta.fallback, source: fromSnapshot ? `CAMS (Open-Meteo)${SNAPSHOT_SUFFIX}` : "CAMS (Open-Meteo)", empty });
+        return ok({ payload, dataDate: dto.time, fetchedAt, isFallback: meta.fallback, source: fromSnapshot ? `CAMS${SNAPSHOT_SUFFIX}` : "CAMS", empty });
       } catch (cause) {
         return err(toLayerError(cause));
       }

@@ -92,7 +92,8 @@ function buildQuery(base: string, pendingSat: string | null): string {
     fireWindow: layers.fires.config.window,
   });
 
-  return q.toString();
+  // Keep `layers=ozone,fires` readable (commas are legal in query values).
+  return q.toString().replace(/%2C/gi, ",");
 }
 
 export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState): void {

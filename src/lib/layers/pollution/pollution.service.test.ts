@@ -71,7 +71,7 @@ describe("pollution provider", () => {
     const first = await provider.load({ pollutant: "pm2_5" }, ctx());
     const second = await provider.load({ pollutant: "pm10" }, ctx());
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(first.ok && first.value).toMatchObject({ dataDate: "2026-11-02T12:00Z", fetchedAt: 1234, isFallback: false, source: "CAMS (Open-Meteo)", empty: false });
+    expect(first.ok && first.value).toMatchObject({ dataDate: "2026-11-02T12:00Z", fetchedAt: 1234, isFallback: false, source: "CAMS", empty: false });
     expect(second.ok && second.value.payload.values[0]).toBeCloseTo(1 / 6, 5);
   });
 
@@ -124,7 +124,7 @@ describe("pollution provider", () => {
       const fetchMock = routing(() => new Response("boom", { status: 500 }));
       vi.stubGlobal("fetch", fetchMock);
       const result = await createPollutionProvider().load({ pollutant: "pm2_5" }, ctx());
-      expect(result.ok && result.value).toMatchObject({ isFallback: true, dataDate: DTO.time, source: "CAMS (Open-Meteo) · instantánea" });
+      expect(result.ok && result.value).toMatchObject({ isFallback: true, dataDate: DTO.time, source: "CAMS · instantánea" });
       // Cached for a short time: no further requests.
       await createPollutionProvider().load({ pollutant: "pm10" }, ctx());
       expect(fetchMock).toHaveBeenCalledTimes(3);

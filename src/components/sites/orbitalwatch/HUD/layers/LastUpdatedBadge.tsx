@@ -52,7 +52,8 @@ export function LastUpdatedBadge({ id }: LastUpdatedBadgeProps) {
   const fetchedAt = useLayersStore((s) => s.layers[id].fetchedAt);
   const isFallback = useLayersStore((s) => s.layers[id].isFallback);
   const firesWindow = useLayersStore((s) => s.layers.fires.config.window);
-  const simMs = useEngineStore((s) => s.time.ms);
+  // Boolean selector: the 4 Hz time tick re-renders only when the answer flips. Live data that is merely late is covered by latencyNote.
+  const mismatch = useEngineStore((s) => !s.time.isLive && timelineMismatch(s.time.ms, dataDate));
   const now = useNow();
 
   if (dataDate === null && status !== "error") return null;
@@ -62,7 +63,6 @@ export function LastUpdatedBadge({ id }: LastUpdatedBadgeProps) {
   const dateText = dataDate === null ? null : formatUtcDate(dataDate, withTime);
   const updated = fetchedAt === null ? null : `actualizado ${formatRelative(fetchedAt, now)}`;
   const prefix = id === "fires" ? `Ventana ${FIRE_WINDOW_LABELS[firesWindow]} · ` : "";
-  const mismatch = timelineMismatch(simMs, dataDate);
 
   return (
     <span

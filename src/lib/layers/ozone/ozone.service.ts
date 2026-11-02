@@ -134,6 +134,14 @@ export interface OzoneProviderDeps {
  * A decoded image with under 1 % non-transparent pixels returns `ok({ empty: true, payload })` and is NOT
  * closed here: the caller discards the payload and closes the bitmap. Aborts resolve `aborted`.
  */
+/** Human labels of the resolved GIBS product (the raw layer id stays in the route meta). */
+const OZONE_SOURCE_LABEL: Readonly<Record<OzoneDescriptor["product"], string>> = {
+  OMI_TOMS: "OMI (Aura) · TOMS",
+  OMI_DOAS: "OMI (Aura) · DOAS",
+  OMPS: "OMPS (Suomi NPP)",
+  snapshot: "OMI (Aura) · instantánea",
+};
+
 export function createOzoneProvider(deps: OzoneProviderDeps = {}): DataProvider<OzoneLayerConfig, RasterPayload> {
   const decode = deps.decode ?? defaultDecoder;
   const fetchImpl: typeof fetch = deps.fetchImpl ?? ((input, init) => fetch(input, init));
@@ -184,7 +192,7 @@ export function createOzoneProvider(deps: OzoneProviderDeps = {}): DataProvider<
           dataDate: date,
           fetchedAt: now(),
           isFallback: meta.fallback || descriptor.product === "snapshot" || usedSnapshotRetry,
-          source: descriptor.layer,
+          source: usedSnapshotRetry ? OZONE_SOURCE_LABEL.snapshot : OZONE_SOURCE_LABEL[descriptor.product],
           empty,
         });
       } catch (cause) {
