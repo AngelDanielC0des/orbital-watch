@@ -1,0 +1,11 @@
+# T07 — Shell: body classes, keyboard shortcuts, hint/warp/stat-space in React
+Tier: sonnet5-medium · Wave: 3 · Depends: T04
+
+**Target**: `src/components/sites/orbitalwatch/OrbitalWatch.tsx`, `HUD/Hint.tsx`, `HUD/ViewControls.tsx`, `HUD/HUDHeader.tsx`.
+**Change**: (1) one `useEffect` in `OrbitalWatch.tsx` keyed on store `view` and `filter` toggles `document.body.classList` `view-earth|view-solar|view-galaxy` and `is-alarm` (removes all on cleanup) — React is the single writer (ADR-5). (2) `useEffect` keydown on `window`: Space → `handle.togglePlay()` (ignore when target is input/button), Escape → `handle.deselectSatellite()`; mirror `E/main.ts:693-706` (read only those lines). (3) `#warp` and `#stat-space` nodes driven by store `view`/`isBusy` (`SpaceUi.setView` semantics: `E/space-ui.ts:180-195`). (4) `Hint` reads `hint`/`isHintDismissed` from the store; dismiss calls store + `handle.dismissHint()`. Remove leftover DOM ids no React component uses. (5) Accessibility: `aria-live="polite"` + `role="status"` on the visible-count/source line in `HUDHeader`; view buttons use `aria-pressed`; skip-to-content not needed (single view). Keyboard: `1/2/3` → earth/solar/galaxy, `N` → night toggle (document them in `Hint`).
+**Pattern**: existing HUD components (store selectors + facade calls); K5 is NOT needed (all low-frequency).
+**Constraints**: do not touch `src/engine/*`, `Timeline.tsx`, `SatellitePanel.tsx`, `BodyPanel.tsx`, `LabelOverlay.tsx`, `PlaceSearch*.tsx`.
+**Ownership**: `OrbitalWatch.tsx` (whole file in wave 3; T05b/T06 do not touch it), `HUD/Hint.tsx`, `HUD/ViewControls.tsx`, `HUD/HUDHeader.tsx`.
+**Acceptance**: `npx tsc --noEmit`; `npx eslint src/components/sites/orbitalwatch`; `rg -n "document.body" src` → only `OrbitalWatch.tsx`; Space toggles play; switching view changes body class and the warp overlay.
+**HINTS**: ids used by CSS: `E/hud.ts:60-93` (HudElements) and context map §DOM contract; `globals.css`/`orbitalwatch.css` selectors for `body.view-*`, `.is-alarm`, `#warp`.
+**Pitfalls**: `document` at module top level (SSR crash: only inside effects); registering keydown twice under StrictMode without cleanup; duplicating the view state locally instead of reading the store; leaving ids that `E/main.ts` searched (harmless after T11, but remove to avoid two writers).
