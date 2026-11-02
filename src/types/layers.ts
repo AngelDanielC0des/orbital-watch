@@ -29,6 +29,12 @@ export type FireWindow = "24h" | "48h" | "7d";
 /** GIBS ozone products in fallback order. */
 export type OzoneProduct = "OMI_TOMS" | "OMI_DOAS" | "OMPS";
 
+/** HUD data mode: orbital objects (satellites) or one environmental view. Only one mode is shown at a time. */
+export type EnvMode = "orbit" | "fires" | "atmosphere";
+
+/** Layer shown inside the atmosphere mode (never both at once). */
+export type AtmosphereLayerId = Extract<EnvironmentalLayerId, "pollution" | "ozone">;
+
 /** Lifecycle of one environmental layer in the UI. */
 export type LayerStatus = "idle" | "loading" | "ready" | "empty" | "error";
 

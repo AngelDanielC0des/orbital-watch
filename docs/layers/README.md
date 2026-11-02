@@ -28,7 +28,7 @@ Las fuentes, licencias y atribuciones están resumidas en
                     empty/error, fechas, fuente)       / clearLayerData(id)
                           |  (solo UI, nunca por frame)       |
                           v                                   v
-                      HUD (LayersDrawer...)         DataLayer en el motor (src/engine/layers/*)
+                      HUD (FilterBar + card)       DataLayer en el motor (src/engine/layers/*)
                                                     NUNCA hace fetch; solo sube a GPU
 ```
 
@@ -160,8 +160,10 @@ motor. Se asume un descriptor de imagen equirectangular servido por una ruta pro
    - `src/stores/layers-store.ts`: `LAYER_IDS`, `INITIAL_OPACITY`, `INITIAL_CONFIG`, `freshLayers()`,
      `freshNonce()`, los `switch` de `patchLayer` y `patchConfig`, y la hidratación de `config` en `hydrate`
      (`config?.ozone`, `config?.pollution`, `config?.fires`).
-   - Fila y leyenda: `HUD/layers/LayerRow.tsx` (icono, `legend`, selectores), `ActiveLegendStrip.tsx` y
-     `LayerEmptyState.tsx` (ramas por id). La leyenda sale de un `LegendSpec` (`src/types/layers.ts`).
+   - Modo y tarjeta: las capas se activan con los botones de modo de `HUD/FilterBar.tsx` («Incendios»,
+     «Atmósfera»); `EnvMode`/`AtmosphereLayerId` (`src/types/layers.ts`), `setMode`/`layerForMode`/`hydrate` en
+     `layers-store.ts` y `HUD/layers/EnvironmentModeCard.tsx` (icono, leyenda, selectores) tienen ramas por id; también
+     `LayerEmptyState.tsx`. Una capa nueva necesita un modo (o entrar en uno existente). La leyenda sale de un `LegendSpec`.
    - Deep link: `layers=lightning` ya funciona porque `src/lib/layers/url-state.ts` filtra con
      `ENVIRONMENTAL_LAYER_IDS` (lista permitida). Solo hay que tocar `LayerUrlState.config`, `parseLayerUrlState`,
      `writeLayerParams` y `MANAGED_KEYS` en `src/hooks/useUrlState.ts` si la capa añade parámetros propios.
@@ -170,7 +172,7 @@ motor. Se asume un descriptor de imagen equirectangular servido por una ruta pro
 ## 4. Fuentes, refresco y utilidades
 
 Licencias y atribución: véase [README.md, "Fuentes de datos"](../../README.md#fuentes-de-datos); el texto literal
-vive en `src/lib/layers/attribution.ts` (pie de la HUD y filas del cajón).
+vive en `src/lib/layers/attribution.ts` (pie del panel Capas y tarjeta del modo).
 
 | Capa | Refresco cliente (`useLayerData`) | `s-maxage` de la ruta | `revalidate` del fetch upstream | Caché cliente |
 | --- | --- | --- | --- | --- |
@@ -216,6 +218,15 @@ implementada: la ruta de ozono solo acepta `product` y `size`.
 
 Las claves opcionales (`FIRMS_MAP_KEY`, `OPENAQ_API_KEY`) no se usan todavía; véase `.env.example`.
 
+## 4b. Modos de la HUD
+
+Los botones «Incendios» y «Atmósfera» están junto a los filtros de satélites (Todo · Basura espacial · Starlink ·
+Previstos) y son excluyentes con ellos: cada modo muestra solo lo suyo. En «Incendios» o «Atmósfera» se ocultan los
+satélites y la órbita seguida (las preferencias del panel Capas se conservan), se deselecciona el satélite y el filtro
+vuelve a «Todo». «Atmósfera» muestra una sola capa a la vez: calidad del aire (por defecto) u ozono, con un selector en
+la tarjeta. Pulsar un filtro de satélites, el × de la tarjeta, el botón del modo activo o seleccionar un satélite vuelve
+al modo órbita. Los deep links `layers=` se traducen a un modo (incendios > calidad del aire > ozono).
+
 ## 5. Memoria, liberación y presupuesto
 
 ### Reglas
@@ -247,6 +258,6 @@ Las claves opcionales (`FIRMS_MAP_KEY`, `OPENAQ_API_KEY`) no se usan todavía; v
 | Commits de React a frecuencia de frame | 0 | el store no se escribe por frame |
 
 Medido (dev, Chromium headless con GL por software, tier `hi`, ver `.agent/STATUS.md` ola 5): draw calls 14 → 18
-(+4); texturas 21 → 25; 441 puntos + 2 000 hotspots; 0 mutaciones del DOM del drawer en reposo; tras `clearData`
+(+4); texturas 21 → 25; 441 puntos + 2 000 hotspots; 0 mutaciones del DOM del panel en reposo (medido antes de los modos); tras `clearData`
 en las tres capas las texturas vuelven a 23 (21 + 2 LUT permanentes). Los tamaños de GPU de la tabla son
 estimaciones del plan (no medibles desde el navegador).

@@ -3,7 +3,6 @@
 import React from "react";
 import { useEngineStore } from "@/stores/engine-store";
 import type { ViewMode } from "@/types/engine";
-import type { EnvironmentalLayerId } from "@/types/layers";
 import { LayersDrawer } from "./layers/LayersDrawer";
 
 interface ViewControlsProps {
@@ -11,10 +10,9 @@ interface ViewControlsProps {
   /** Forwarded to the engine (`handle.toggleLayer`). */
   onToggleLayer?: (layerId: string, visible: boolean) => void;
   /** Engine-only opacity preview while a slider is dragged. */
-  onOpacityPreview?: (id: EnvironmentalLayerId, value: number) => void;
 }
 
-export function ViewControls({ onSelectView, onToggleLayer, onOpacityPreview }: ViewControlsProps) {
+export function ViewControls({ onSelectView, onToggleLayer }: ViewControlsProps) {
   const currentView = useEngineStore((s) => s.view);
   const isBusy = useEngineStore((s) => s.isBusy);
 
@@ -52,7 +50,7 @@ export function ViewControls({ onSelectView, onToggleLayer, onOpacityPreview }: 
         <span className="scales__name">Vía Láctea</span>
         <span className="scales__size num">100 000 a. l.</span>
       </button>
-      <LayersDrawer onToggleLayer={onToggleLayer} onOpacityPreview={onOpacityPreview} />
+      <LayersDrawer onToggleLayer={onToggleLayer} />
     </nav>
   );
 }

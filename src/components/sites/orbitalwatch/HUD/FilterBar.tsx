@@ -1,8 +1,11 @@
 "use client";
 
 import React from "react";
+import { Flame, Wind } from "lucide-react";
 import { useEngineStore } from "@/stores/engine-store";
+import { useLayersStore } from "@/stores/layers-store";
 import type { SatelliteFilter } from "@/types/engine";
+import type { EnvMode } from "@/types/layers";
 
 interface FilterBarProps {
   onFilterChange?: (filter: SatelliteFilter) => void;
@@ -10,11 +13,19 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ onFilterChange, onToggleNight }: FilterBarProps) {
-  const currentFilter = useEngineStore((s) => s.filter);
+  const engineFilter = useEngineStore((s) => s.filter);
+  const mode = useLayersStore((s) => s.mode);
+  // Satellite filters read as selected only in the orbital mode; the data modes are exclusive with them.
+  const currentFilter: SatelliteFilter | null = mode === "orbit" ? engineFilter : null;
   const nightMode = useEngineStore((s) => s.nightMode);
 
   const handleFilter = (filter: SatelliteFilter) => {
+    useLayersStore.getState().setMode("orbit");
     onFilterChange?.(filter);
+  };
+
+  const handleMode = (next: EnvMode) => {
+    useLayersStore.getState().setMode(mode === next ? "orbit" : next);
   };
 
   const handleNight = () => {
@@ -58,6 +69,28 @@ export function FilterBar({ onFilterChange, onToggleNight }: FilterBarProps) {
         >
           <i className="swatch swatch--projected" aria-hidden="true" />
           Previstos
+        </button>
+      </div>
+      <div className="segmented" role="group" aria-label="Datos de la Tierra">
+        <button
+          type="button"
+          data-mode="fires"
+          aria-pressed={mode === "fires"}
+          title="Incendios activos detectados por satélite (NASA FIRMS)"
+          onClick={() => handleMode("fires")}
+        >
+          <Flame className="size-3.5" aria-hidden="true" />
+          Incendios
+        </button>
+        <button
+          type="button"
+          data-mode="atmosphere"
+          aria-pressed={mode === "atmosphere"}
+          title="Calidad del aire (CAMS) y capa de ozono (NASA GIBS)"
+          onClick={() => handleMode("atmosphere")}
+        >
+          <Wind className="size-3.5" aria-hidden="true" />
+          Atmósfera
         </button>
       </div>
       <button

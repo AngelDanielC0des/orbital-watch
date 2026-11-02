@@ -4,18 +4,14 @@ import React, { useEffect, useId, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { Layers, X } from "lucide-react";
-import { ENVIRONMENTAL_LAYER_IDS, LAYER_CATALOG, ORBIT_LAYER_IDS } from "@/lib/layers/catalog";
+import { LAYER_CATALOG, ORBIT_LAYER_IDS } from "@/lib/layers/catalog";
 import { useEngineStore } from "@/stores/engine-store";
-import { useLayersStore } from "@/stores/layers-store";
-import type { EnvironmentalLayerId } from "@/types/layers";
 import { AttributionFooter } from "./AttributionFooter";
-import { LayerRow } from "./LayerRow";
 import { LayerToggle } from "./LayerToggle";
 
 interface LayersDrawerProps {
   /** Forwarded to the engine (`handle.toggleLayer`) for orbit layers. */
   onToggleLayer?: (layerId: string, visible: boolean) => void;
-  onOpacityPreview?: (id: EnvironmentalLayerId, value: number) => void;
 }
 
 const DESKTOP_MIN_PX = 860;
@@ -52,9 +48,8 @@ function OrbitRow({ id, onToggleLayer }: { id: (typeof ORBIT_LAYER_IDS)[number];
   );
 }
 
-const NOOP_PREVIEW = () => undefined;
 
-export function LayersDrawer({ onToggleLayer, onOpacityPreview = NOOP_PREVIEW }: LayersDrawerProps) {
+export function LayersDrawer({ onToggleLayer }: LayersDrawerProps) {
   const [open, setOpen] = useState(false);
   const [snap, setSnap] = useState<Snap>("half");
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -64,9 +59,6 @@ export function LayersDrawer({ onToggleLayer, onOpacityPreview = NOOP_PREVIEW }:
   const panelId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
-  const view = useEngineStore((s) => s.view);
-  const activeCount = useLayersStore((s) => ENVIRONMENTAL_LAYER_IDS.filter((id) => s.layers[id].visible).length);
-  const earth = view === "earth";
 
   useEffect(() => {
     if (!open) return;
@@ -152,7 +144,7 @@ export function LayersDrawer({ onToggleLayer, onOpacityPreview = NOOP_PREVIEW }:
           setOpen((v) => !v);
         }}
       >
-        <span className="scales__name">{activeCount > 0 ? `Capas · ${activeCount}` : "Capas"}</span>
+        <span className="scales__name">Capas</span>
       </button>
       {open &&
         createPortal(
@@ -207,22 +199,6 @@ export function LayersDrawer({ onToggleLayer, onOpacityPreview = NOOP_PREVIEW }:
                 <ul className="m-0 flex list-none flex-col p-0">
                   {ORBIT_LAYER_IDS.map((id) => (
                     <OrbitRow key={id} id={id} onToggleLayer={onToggleLayer} />
-                  ))}
-                </ul>
-              </section>
-              <section
-                role="group"
-                aria-labelledby={`${panelId}-env`}
-                aria-disabled={!earth}
-                className="border-t border-[var(--rule)] py-2"
-              >
-                <h3 id={`${panelId}-env`} className="m-0 px-4 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-dim)]">
-                  Atmósfera y superficie
-                </h3>
-                {!earth && <p className="m-0 px-4 pb-2 text-[12.5px] text-[var(--ink-dim)]">Disponible en la vista Tierra</p>}
-                <ul className="m-0 flex list-none flex-col p-0">
-                  {ENVIRONMENTAL_LAYER_IDS.map((id) => (
-                    <LayerRow key={id} id={id} disabled={!earth} onOpacityPreview={onOpacityPreview} />
                   ))}
                 </ul>
               </section>

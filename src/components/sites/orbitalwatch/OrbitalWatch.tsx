@@ -13,7 +13,7 @@ import { FilterBar } from "./HUD/FilterBar";
 import { SatellitePanel } from "./HUD/SatellitePanel";
 import { BodyPanel } from "./HUD/BodyPanel";
 import { Timeline } from "./HUD/Timeline";
-import { ActiveLegendStrip } from "./HUD/layers/ActiveLegendStrip";
+import { EnvironmentModeCard } from "./HUD/layers/EnvironmentModeCard";
 import { Loader } from "./HUD/Loader";
 import { Hint } from "./HUD/Hint";
 import { EngineErrorOverlay, useIsFatalEngineError } from "./HUD/EngineErrorOverlay";
@@ -167,13 +167,16 @@ export function OrbitalWatch() {
       {/* Scale & View Selector */}
       <ViewControls
         onSelectView={(v) => void handle?.setView(v)}
-        onToggleLayer={(id, v) => handle?.toggleLayer(id, v)}
-        onOpacityPreview={(id, v) => handle?.setLayerOpacity?.(id, v)}
+        onToggleLayer={(id, v) => {
+          // Outside the orbital mode satellites/track stay hidden; the toggle only records the preference.
+          if ((id === "satellites" || id === "track") && useLayersStore.getState().mode !== "orbit") return;
+          handle?.toggleLayer(id, v);
+        }}
       />
 
       <EnvironmentalLayersController handle={handle} urlState={layerUrl} />
 
-      <ActiveLegendStrip />
+      <EnvironmentModeCard onOpacityPreview={(id, v) => handle?.setLayerOpacity?.(id, v)} />
 
       {/* 3D Screen Projected Labels Target */}
       <LabelOverlay frames={handle?.frames ?? null} defs={[]} onPick={(k) => void handle?.pickLabel(k)} />

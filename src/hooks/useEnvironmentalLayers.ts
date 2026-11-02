@@ -7,8 +7,9 @@
 import { useEffect } from "react";
 import type { EngineHandle } from "@/engine/contract";
 import { ENVIRONMENTAL_LAYER_IDS } from "@/lib/layers/catalog";
+import { useEngineStore } from "@/stores/engine-store";
 import { useLayersStore, type LayersStoreState } from "@/stores/layers-store";
-import type { EnvironmentalLayerId, ProviderFlags } from "@/types/layers";
+import type { EnvMode, EnvironmentalLayerId, ProviderFlags } from "@/types/layers";
 import { useLayerData } from "./useLayerData";
 
 /** Dev flags per layer (`?mockError=<id>` only fails that layer). Must be referentially stable. */
@@ -29,6 +30,40 @@ export function useEnvironmentalLayers(handle: EngineHandle | null, flags: Layer
     if (!handle) return;
     syncEngine(handle, useLayersStore.getState(), null);
     return useLayersStore.subscribe((state, prev) => syncEngine(handle, state, prev));
+  }, [handle]);
+
+  // Modes are exclusive: satellites and the followed orbit show only in "orbit" (the user's toggles are kept as preferences).
+  useEffect(() => {
+    if (!handle) return;
+    const syncOrbitLayers = () => {
+      const orbit = useLayersStore.getState().mode === "orbit";
+      const prefs = useEngineStore.getState().layersVisible;
+      handle.toggleLayer("satellites", orbit && prefs.satellites !== false);
+      handle.toggleLayer("track", orbit && prefs.track !== false);
+    };
+    const enterMode = (mode: EnvMode, prev: EnvMode) => {
+      if (mode !== "orbit" && prev === "orbit") {
+        handle.deselectSatellite();
+        if (useEngineStore.getState().filter !== "all") handle.setFilter("all");
+      }
+      syncOrbitLayers();
+    };
+    const initial = useLayersStore.getState().mode;
+    if (initial !== "orbit") enterMode(initial, "orbit");
+    const offLayers = useLayersStore.subscribe((s, prev) => {
+      if (s.mode !== prev.mode) enterMode(s.mode, prev.mode);
+    });
+    const offEngine = useEngineStore.subscribe((s, prev) => {
+      // Picking a satellite (search, deep link) brings the orbital view back.
+      if (s.selectedSatellite && !prev.selectedSatellite && useLayersStore.getState().mode !== "orbit") {
+        useLayersStore.getState().setMode("orbit");
+      }
+      if (s.layersVisible !== prev.layersVisible) syncOrbitLayers();
+    });
+    return () => {
+      offLayers();
+      offEngine();
+    };
   }, [handle]);
 
   useLayerData("ozone", handle, flags.ozone);

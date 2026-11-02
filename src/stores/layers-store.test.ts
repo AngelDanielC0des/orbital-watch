@@ -86,12 +86,39 @@ describe("layers store", () => {
     expect(get().layers.ozone).not.toBe(ozone);
   });
 
-  it("hydrate applies visibility and config", () => {
+  it("hydrate maps a deep link to one mode (fires wins) and applies config", () => {
     get().hydrate({ visible: ["pollution", "fires"], config: { pollution: { pollutant: "no2" } } });
-    expect(get().layers.pollution).toMatchObject({ visible: true, config: { pollutant: "no2" } });
+    expect(get().mode).toBe("fires");
     expect(get().layers.fires.visible).toBe(true);
+    expect(get().layers.pollution).toMatchObject({ visible: false, config: { pollutant: "no2" } });
     expect(get().layers.ozone.visible).toBe(false);
     expect(get().lastEnabled).toBe("fires");
+  });
+
+  it("hydrate with ozone only enters the atmosphere mode on ozone", () => {
+    get().hydrate({ visible: ["ozone"] });
+    expect(get()).toMatchObject({ mode: "atmosphere", atmosphereLayer: "ozone" });
+    expect(get().layers.ozone.visible).toBe(true);
+  });
+
+  it("setMode shows exactly the mode's layer", () => {
+    get().setMode("fires");
+    expect([get().layers.ozone.visible, get().layers.pollution.visible, get().layers.fires.visible]).toEqual([false, false, true]);
+    get().setMode("atmosphere");
+    expect([get().layers.ozone.visible, get().layers.pollution.visible, get().layers.fires.visible]).toEqual([false, true, false]);
+    expect(get().lastEnabled).toBe("pollution");
+    get().setMode("orbit");
+    expect([get().layers.ozone.visible, get().layers.pollution.visible, get().layers.fires.visible]).toEqual([false, false, false]);
+    expect(get().lastEnabled).toBeNull();
+  });
+
+  it("setAtmosphereLayer swaps the visible layer only inside the atmosphere mode", () => {
+    get().setAtmosphereLayer("ozone");
+    expect(get().layers.ozone.visible).toBe(false);
+    get().setMode("atmosphere");
+    expect(get().layers.ozone.visible).toBe(true);
+    get().setAtmosphereLayer("pollution");
+    expect([get().layers.ozone.visible, get().layers.pollution.visible]).toEqual([false, true]);
   });
 
   it("resetAll restores fresh copies", () => {

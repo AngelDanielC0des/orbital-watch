@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { EnvironmentalLayerId, LayerConfigMap, LayerError, LayerState } from "@/types/layers";
+import type { AtmosphereLayerId, EnvMode, EnvironmentalLayerId, LayerConfigMap, LayerError, LayerState } from "@/types/layers";
 
 /** Per-layer UI state, keyed by environmental layer id. */
 export type EnvLayerStates = { [K in EnvironmentalLayerId]: LayerState<LayerConfigMap[K]> };
@@ -20,6 +20,14 @@ export interface LayersStoreState {
   /** Most recently switched-on layer (drives the active legend strip), null if none. */
   lastEnabled: EnvironmentalLayerId | null;
   legendDismissed: boolean;
+  /** Active HUD mode; environmental layers are visible only in their own mode. */
+  mode: EnvMode;
+  /** Layer shown while `mode === "atmosphere"`. */
+  atmosphereLayer: AtmosphereLayerId;
+  /** Switches mode and makes exactly the mode's layer visible (none in "orbit"). */
+  setMode(mode: EnvMode): void;
+  /** Chooses the atmosphere layer; applies immediately when the atmosphere mode is active. */
+  setAtmosphereLayer(layer: AtmosphereLayerId): void;
   setVisible(id: EnvironmentalLayerId, visible: boolean): void;
   setOpacity(id: EnvironmentalLayerId, opacity: number): void;
   setConfig<K extends EnvironmentalLayerId>(id: K, patch: Partial<LayerConfigMap[K]>): void;
@@ -132,7 +140,27 @@ function initialState() {
     refreshNonce: freshNonce(),
     lastEnabled: null,
     legendDismissed: false,
+    mode: "orbit" as EnvMode,
+    atmosphereLayer: "pollution" as AtmosphereLayerId,
   };
+}
+
+/** The environmental layer a mode shows (null for "orbit"). */
+export function layerForMode(mode: EnvMode, atmosphereLayer: AtmosphereLayerId): EnvironmentalLayerId | null {
+  if (mode === "fires") return "fires";
+  if (mode === "atmosphere") return atmosphereLayer;
+  return null;
+}
+
+/** Visibility of the three layers for a mode: exactly one (or none) on. */
+function applyMode(layers: EnvLayerStates, mode: EnvMode, atmosphereLayer: AtmosphereLayerId): EnvLayerStates {
+  const target = layerForMode(mode, atmosphereLayer);
+  let next = layers;
+  for (const id of LAYER_IDS) {
+    const visible = id === target;
+    if (next[id].visible !== visible) next = patchLayer(next, id, { visible });
+  }
+  return next;
 }
 
 /** Zustand store of the environmental layers UI state. */
@@ -181,12 +209,27 @@ export const useLayersStore = create<LayersStoreState>((set) => ({
       if (config?.ozone) layers = patchConfig(layers, "ozone", config.ozone);
       if (config?.pollution) layers = patchConfig(layers, "pollution", config.pollution);
       if (config?.fires) layers = patchConfig(layers, "fires", config.fires);
-      let lastEnabled = state.lastEnabled;
-      for (const id of input.visible ?? []) {
-        layers = patchLayer(layers, id, { visible: true });
-        lastEnabled = id;
-      }
-      return { layers, lastEnabled };
+      // Deep links map to one mode: fires wins, then air quality, then ozone (modes show a single layer).
+      const wanted = new Set(input.visible ?? []);
+      let mode: EnvMode = state.mode;
+      let atmosphereLayer: AtmosphereLayerId = state.atmosphereLayer;
+      if (wanted.has("fires")) mode = "fires";
+      else if (wanted.has("pollution")) [mode, atmosphereLayer] = ["atmosphere", "pollution"];
+      else if (wanted.has("ozone")) [mode, atmosphereLayer] = ["atmosphere", "ozone"];
+      layers = applyMode(layers, mode, atmosphereLayer);
+      return { layers, mode, atmosphereLayer, lastEnabled: layerForMode(mode, atmosphereLayer) };
+    }),
+
+  setMode: (mode) =>
+    set((state) => {
+      const layers = applyMode(state.layers, mode, state.atmosphereLayer);
+      return { mode, layers, lastEnabled: layerForMode(mode, state.atmosphereLayer), legendDismissed: false };
+    }),
+
+  setAtmosphereLayer: (atmosphereLayer) =>
+    set((state) => {
+      if (state.mode !== "atmosphere") return { atmosphereLayer };
+      return { atmosphereLayer, layers: applyMode(state.layers, "atmosphere", atmosphereLayer), lastEnabled: atmosphereLayer };
     }),
 
   resetAll: () => set(initialState()),

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Capas ambientales (Unreleased)
 
 #### Added
+
+- HUD modes «Incendios» and «Atmósfera» next to the satellite filters; each mode shows only its own data (satellites hidden), atmosphere switches between air quality and ozone; mode card with legend, date, selectors and Info (opacity, sources). The environmental section was removed from the Capas panel.
 - Three environmental data layers on the globe, hidden by default: ozone total column (NASA GIBS, raster), surface air quality (Open-Meteo CAMS, points) and active fires (NASA FIRMS VIIRS, density grid plus hotspots). See `docs/layers/README.md`.
 - Route Handlers `GET /api/orbital/ozone`, `/pollution` and `/fires` with allow-listed params, in-memory memo with in-flight de-duplication, `Cache-Control` (`s-maxage` + `stale-while-revalidate`) and bundled snapshot fallbacks.
 - Engine overlays (`RasterOverlayLayer`, `PointsOverlayLayer`, `HeatmapLayer`) behind the optional facade members `setLayerData`, `setLayerOpacity` and `clearLayerData` (ADR-15); at most 4 added draw calls, hotspot caps 2 000 (`hi`) / 800 (`lo`), ozone texture 4096 (`hi`) / 2048 (`lo`).
