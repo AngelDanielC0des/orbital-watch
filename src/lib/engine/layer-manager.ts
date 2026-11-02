@@ -1,5 +1,5 @@
 import type { Scene } from "three";
-import type { ILayer, LayerInitContext, LayerUpdateContext } from "@/types/engine";
+import type { DataLayer, ILayer, LayerInitContext, LayerUpdateContext } from "@/types/engine";
 
 export class LayerManager {
   private layers: Map<string, ILayer> = new Map();
@@ -28,6 +28,12 @@ export class LayerManager {
 
   get(id: string): ILayer | undefined {
     return this.layers.get(id);
+  }
+
+  /** ADR-15: the layer as a `DataLayer`, or undefined when it does not accept data. */
+  getDataLayer(id: string): DataLayer | undefined {
+    const layer = this.layers.get(id);
+    return layer && isDataLayer(layer) ? layer : undefined;
   }
 
   getAll(): ILayer[] {
@@ -77,4 +83,8 @@ export class LayerManager {
     }
     this.layers.clear();
   }
+}
+
+function isDataLayer(layer: ILayer): layer is DataLayer {
+  return "setData" in layer && "clearData" in layer && "setOpacity" in layer;
 }

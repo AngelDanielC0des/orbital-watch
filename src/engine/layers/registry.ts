@@ -6,8 +6,11 @@
 import type { LayerRegistry } from "@/engine/contract";
 import { createEarthLayer } from "./earth-layer";
 import { createGalaxyLayer } from "./galaxy-layer";
+import { createFiresLayer } from "./heatmap-layer";
 import { createHoverLayer } from "./hover-layer";
 import { createPlaceLayer } from "./place-layer";
+import { createPollutionLayer } from "./points-overlay-layer";
+import { createOzoneLayer } from "./raster-overlay-layer";
 import { createSatellitesLayer } from "./satellites-layer";
 import { createSkyLayer } from "./sky-layer";
 import { createSolarLayer } from "./solar-layer";
@@ -22,6 +25,9 @@ export const LAYER_REGISTRY: LayerRegistry = {
   track: createTrackLayer,
   satellites: createSatellitesLayer,
   hover: createHoverLayer,
+  ozone: createOzoneLayer,
+  fires: createFiresLayer,
+  pollution: createPollutionLayer,
 };
 
 /**
@@ -38,4 +44,8 @@ export const DEFAULT_LAYERS = [
   { id: "track" },
   { id: "satellites" },
   { id: "hover" },
+  // Environmental overlays (ADR-15): created hidden after `earth`, fed through `setLayerData`.
+  { id: "ozone", visible: false },
+  { id: "fires", visible: false },
+  { id: "pollution", visible: false },
 ] as const;

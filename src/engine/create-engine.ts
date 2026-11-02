@@ -18,6 +18,7 @@ import {
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LayerManager } from "@/lib/engine/layer-manager";
+import { closeImage } from "./layers/overlay-base";
 import { createFrameBus } from "@/lib/frame-bus";
 import { fetchCelestrak, generateSyntheticCatalog } from "@/lib/orbital/catalog";
 import { Category, gmst, sunDirection } from "@/lib/orbital/orbit-math";
@@ -1402,6 +1403,13 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     flyToPlace,
     dismissHint: () => {},
     toggleLayer: (id, visible) => layers.setVisible(id, visible),
+    setLayerOpacity: (id, opacity) => layers.getDataLayer(id)?.setOpacity(opacity),
+    setLayerData: (id, payload) => {
+      const layer = disposed ? undefined : layers.getDataLayer(id);
+      if (layer) layer.setData(payload);
+      else closeImage(payload);
+    },
+    clearLayerData: (id) => layers.getDataLayer(id)?.clearData(),
     pickLabel,
     setTimelineInset,
     findSatellites,
