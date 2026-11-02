@@ -1,6 +1,6 @@
 import React from "react";
 import { AlertTriangle } from "lucide-react";
-import { getEnvironmentalMetadata } from "@/lib/layers/catalog";
+import { useLayersStore } from "@/stores/layers-store";
 import type { EnvironmentalLayerId, LayerError } from "@/types/layers";
 
 interface LayerErrorCardProps {
@@ -9,17 +9,34 @@ interface LayerErrorCardProps {
   onRetry: () => void;
 }
 
+const SOURCE_LABELS: Record<EnvironmentalLayerId, string> = {
+  ozone: "NASA GIBS (ozono)",
+  pollution: "Open-Meteo (calidad del aire)",
+  fires: "NASA FIRMS (incendios)",
+};
+
 export function LayerErrorCard({ id, error, onRetry }: LayerErrorCardProps) {
-  const meta = getEnvironmentalMetadata(id);
+  const hasPreviousData = useLayersStore((s) => s.layers[id].fetchedAt !== null);
+  const headline =
+    error.code === "invalid"
+      ? `No se pudo cargar ${SOURCE_LABELS[id]}. Los datos recibidos no son válidos.`
+      : `No se pudo cargar ${SOURCE_LABELS[id]}.`;
+  const followUp = hasPreviousData
+    ? "Mostrando los últimos datos disponibles."
+    : "Reintentaremos automáticamente en unos minutos.";
+
   return (
     <div
       role="alert"
       className="flex flex-col gap-2 rounded-lg border border-[var(--alarm)] bg-black/20 p-2.5 text-[13px]"
     >
-      <p className="m-0 flex items-start gap-2 text-[var(--ink)]">
+      <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--alarm)]" aria-hidden="true" />
-        <span>{error.message || `No se pudo cargar ${meta.source.name}.`}</span>
-      </p>
+        <div className="flex flex-col gap-0.5">
+          <p className="m-0 text-[var(--ink)]">{headline}</p>
+          <p className="m-0 text-[12px] text-[var(--ink-dim)]">{followUp}</p>
+        </div>
+      </div>
       <button
         type="button"
         onClick={onRetry}
