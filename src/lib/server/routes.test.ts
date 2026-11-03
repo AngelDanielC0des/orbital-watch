@@ -21,7 +21,8 @@ const FIRES: FiresDTO = {
   acqRange: { from: "2026-11-01", to: "2026-11-02" },
   sources: ["NOAA-20", "NOAA-21"],
   grid: { cols: 720, rows: 360, cells: [10, 200, 100] },
-  hotspots: [10, 20, 55, 1],
+  hotspots: [10, 20, 55, 1, 1, 30, 20],
+  hotspotStride: 7,
   total: 1,
 };
 const POLLUTION: PollutionDTO = {

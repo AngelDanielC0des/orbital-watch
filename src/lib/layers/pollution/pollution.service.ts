@@ -47,18 +47,33 @@ export function isPollutionDTO(value: unknown): value is PollutionDTO {
   );
 }
 
+/** Grid nodes (sparse global coverage) vs cities: ids from `sample-points.ts` start with `grid-`. */
+export function isGridPoint(id: string): boolean {
+  return id.startsWith("grid-");
+}
+
+/** Last DTO handed to the engine (index i of a pick = `dto.points[i]`). Read by the pick resolver. */
+let latestPollution: { dto: PollutionDTO; pollutant: Pollutant; isFallback: boolean } | null = null;
+
+/** ADR-16: data behind the pollution points currently on the globe, or null before the first load. */
+export function getLatestPollution(): { dto: PollutionDTO; pollutant: Pollutant; isFallback: boolean } | null {
+  return latestPollution;
+}
+
 /** Builds the engine payload for one pollutant: lat/lon pairs and values normalised on its scale. */
 export function toPointsPayload(dto: PollutionDTO, pollutant: Pollutant): PointsPayload {
   const count = dto.points.length;
   const latLon = new Float32Array(count * 2);
   const values = new Float32Array(count);
+  const kinds = new Uint8Array(count);
   dto.points.forEach((point, i) => {
     latLon[2 * i] = point.lat;
     latLon[2 * i + 1] = point.lon;
     values[i] = normalizeValue(pollutant, point[pollutant]);
+    kinds[i] = isGridPoint(point.id) ? 0 : 1;
   });
   const scale = POLLUTANT_SCALES[pollutant];
-  return { kind: "points", latLon, values, count, scale: scale.legend.stops, categorical: scale.categorical, date: dto.time };
+  return { kind: "points", latLon, values, count, scale: scale.legend.stops, categorical: scale.categorical, kinds, date: dto.time };
 }
 
 interface CachedPollution {
@@ -128,6 +143,7 @@ export function createPollutionProvider(deps: PollutionProviderDeps = {}): DataP
         if (!loaded.ok) return loaded;
         const { dto, meta, fetchedAt, fromSnapshot } = loaded.value;
         const payload = toPointsPayload(dto, config.pollutant);
+        latestPollution = { dto, pollutant: config.pollutant, isFallback: meta.fallback };
         const empty = !dto.points.some((point) => Number.isFinite(point[config.pollutant]));
         return ok({ payload, dataDate: dto.time, fetchedAt, isFallback: meta.fallback, source: fromSnapshot ? `CAMS${SNAPSHOT_SUFFIX}` : "CAMS", empty });
       } catch (cause) {

@@ -5,6 +5,7 @@ import {
   OZONE_SNAPSHOT_URL,
   __resetOzoneCacheForTests,
   createOzoneProvider,
+  getOzoneDuGrid,
   isAllowedImageUrl,
   isOzoneDescriptor,
   type DecodedImage,
@@ -101,6 +102,20 @@ describe("ozone provider", () => {
     stubFetch({ api: () => envelope({ nope: true }) });
     const r = await provider().load({ product: "OMI_TOMS" }, ctx());
     expect(r).toMatchObject({ ok: false, error: { code: "invalid" } });
+  });
+
+  it("builds a Dobson-unit grid from an injected sample", async () => {
+    stubFetch({ images: { [LIVE_URL]: bigBlob } });
+    const rgba = new Uint8ClampedArray(360 * 180 * 4);
+    for (let i = 0; i < rgba.length; i += 4) rgba.set([158, 1, 66, 255], i);
+    const decode = async (): Promise<DecodedImage> => ({ ...decoded(0.6), flipped: false, sample: { rgba, flipped: false } });
+    const r = await provider(decode).load({ product: "OMI_TOMS" }, ctx());
+    expect(r.ok).toBe(true);
+    const latest = getOzoneDuGrid();
+    expect(latest).not.toBeNull();
+    expect(latest?.date).toBe("2026-10-29");
+    expect(latest?.product).toBe("OMI_TOMS");
+    expect(latest?.grid[0]).toBe(500);
   });
 
   it("returns an empty error for a tiny blob", async () => {

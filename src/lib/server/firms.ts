@@ -3,7 +3,7 @@
  * 0.5 degree binner and bounded top-N hotspot selection. Pure functions plus an injectable `fetchImpl`;
  * nothing here throws out of `fetchFires`. Memory stays bounded: bodies are never read as one string.
  */
-import type { FireWindow, FiresDTO, LayerError, Result } from "@/types/layers";
+import { FIRE_HOTSPOT_STRIDE, type FireWindow, type FiresDTO, type LayerError, type Result } from "@/types/layers";
 import { err, layerError, ok } from "../layers/result";
 
 /** Root of the FIRMS global CSV feeds. */
@@ -56,7 +56,7 @@ export function intensityLevel(maxFrp: number): number {
 /** Incremental CSV consumer: feed lines, then `finish` into a DTO. */
 export interface FirmsAccumulator {
   /** Next non-empty line is a header (call at the start of every file). */
-  beginFile(): void;
+  beginFile(sensor?: string): void;
   pushLine(line: string): void;
   /** Accepted data rows. */
   readonly rows: number;
@@ -72,6 +72,8 @@ interface ColumnMap {
   date: number;
   time: number;
   daynight: number;
+  confidence: number;
+  satellite: number;
   width: number;
 }
 
@@ -84,7 +86,9 @@ function parseHeader(line: string): ColumnMap | null {
   const time = names.indexOf("acq_time");
   const daynight = names.indexOf("daynight");
   if (lat < 0 || lon < 0 || frp < 0 || date < 0 || time < 0 || daynight < 0) return null;
-  return { lat, lon, frp, date, time, daynight, width: names.length };
+  const confidence = names.indexOf("confidence");
+  const satellite = names.indexOf("satellite");
+  return { lat, lon, frp, date, time, daynight, confidence, satellite, width: names.length };
 }
 
 function toIso(date: string, time: string): string | null {
@@ -94,6 +98,31 @@ function toIso(date: string, time: string): string | null {
   const mm = Number(padded.slice(2));
   if (hh > 23 || mm > 59) return null;
   return `${date}T${padded.slice(0, 2)}:${padded.slice(2)}:00Z`;
+}
+
+/** FIRMS VIIRS confidence: l/n/h or low/nominal/high; anything else is unknown (-1). */
+function parseConfidence(text: string): number {
+  switch (text.trim().toLowerCase()) {
+    case "l":
+    case "low":
+      return 0;
+    case "n":
+    case "nominal":
+      return 1;
+    case "h":
+    case "high":
+      return 2;
+    default:
+      return -1;
+  }
+}
+
+/** Satellite code: 20 (NOAA-20 / N20 / J1), 21 (NOAA-21 / N21 / J2), 0 unknown. */
+function parseSatellite(text: string): number {
+  const t = text.trim().toUpperCase().replace(/[\s_-]/g, "");
+  if (t === "N20" || t === "J1" || t === "NOAA20" || t === "20") return 20;
+  if (t === "N21" || t === "J2" || t === "NOAA21" || t === "21") return 21;
+  return 0;
 }
 
 function toNumber(text: string): number {
@@ -119,6 +148,10 @@ export function createFirmsAccumulator(): FirmsAccumulator {
   const hLat = new Float64Array(heapCap);
   const hLon = new Float64Array(heapCap);
   const hDay = new Uint8Array(heapCap);
+  const hConf = new Int8Array(heapCap);
+  const hSat = new Uint8Array(heapCap);
+  const hTs = new Float64Array(heapCap);
+  let fileSat = 0;
 
   const swap = (a: number, b: number): void => {
     const f = hFrp[a];
@@ -133,6 +166,15 @@ export function createFirmsAccumulator(): FirmsAccumulator {
     const d = hDay[a];
     hDay[a] = hDay[b];
     hDay[b] = d;
+    const c = hConf[a];
+    hConf[a] = hConf[b];
+    hConf[b] = c;
+    const sa = hSat[a];
+    hSat[a] = hSat[b];
+    hSat[b] = sa;
+    const t = hTs[a];
+    hTs[a] = hTs[b];
+    hTs[b] = t;
   };
   const siftUp = (start: number): void => {
     let i = start;
@@ -156,12 +198,15 @@ export function createFirmsAccumulator(): FirmsAccumulator {
       i = smallest;
     }
   };
-  const offer = (lat: number, lon: number, frp: number, day: number): void => {
+  const offer = (lat: number, lon: number, frp: number, day: number, conf: number, sat: number, ts: number): void => {
     if (heapSize < heapCap) {
       hFrp[heapSize] = frp;
       hLat[heapSize] = lat;
       hLon[heapSize] = lon;
       hDay[heapSize] = day;
+      hConf[heapSize] = conf;
+      hSat[heapSize] = sat;
+      hTs[heapSize] = ts;
       heapSize += 1;
       siftUp(heapSize - 1);
     } else if (heapCap > 0 && frp > hFrp[0]) {
@@ -169,6 +214,9 @@ export function createFirmsAccumulator(): FirmsAccumulator {
       hLat[0] = lat;
       hLon[0] = lon;
       hDay[0] = day;
+      hConf[0] = conf;
+      hSat[0] = sat;
+      hTs[0] = ts;
       siftDown(0);
     }
   };
@@ -180,7 +228,8 @@ export function createFirmsAccumulator(): FirmsAccumulator {
     get rejected() {
       return rejected;
     },
-    beginFile() {
+    beginFile(sensor) {
+      fileSat = parseSatellite(sensor ?? "");
       expectHeader = true;
       columns = null;
     },
@@ -226,7 +275,9 @@ export function createFirmsAccumulator(): FirmsAccumulator {
       if (frp > maxFrp[index]) maxFrp[index] = frp;
       if (minTs === null || ts < minTs) minTs = ts;
       if (maxTs === null || ts > maxTs) maxTs = ts;
-      offer(lat, lon, frp, parts[columns.daynight].trim().toUpperCase() === "D" ? 1 : 0);
+      const sat = columns.satellite >= 0 ? parseSatellite(parts[columns.satellite]) || fileSat : fileSat;
+      const conf = columns.confidence >= 0 ? parseConfidence(parts[columns.confidence]) : -1;
+      offer(lat, lon, frp, parts[columns.daynight].trim().toUpperCase() === "D" ? 1 : 0, conf, sat, Date.parse(ts));
     },
     finish(window, sources, maxHotspots = DEFAULT_MAX_HOTSPOTS) {
       const cells: number[] = [];
@@ -238,16 +289,26 @@ export function createFirmsAccumulator(): FirmsAccumulator {
       for (let i = 0; i < heapSize; i += 1) order.push(i);
       order.sort((a, b) => hFrp[b] - hFrp[a]);
       const hotspots: number[] = [];
+      const generated = new Date();
       for (const i of order.slice(0, Math.max(0, maxHotspots))) {
-        hotspots.push(Number(hLat[i].toFixed(3)), Number(hLon[i].toFixed(3)), Number(hFrp[i].toFixed(1)), hDay[i]);
+        hotspots.push(
+          Number(hLat[i].toFixed(3)),
+          Number(hLon[i].toFixed(3)),
+          Number(hFrp[i].toFixed(1)),
+          hDay[i],
+          hConf[i],
+          Math.max(0, Math.round((generated.getTime() - hTs[i]) / 60000)),
+          hSat[i],
+        );
       }
       return {
         window,
-        generatedAt: new Date().toISOString(),
+        generatedAt: generated.toISOString(),
         acqRange: minTs !== null && maxTs !== null ? { from: minTs, to: maxTs } : null,
         sources,
         grid: { cols: GRID_COLS, rows: GRID_ROWS, cells },
         hotspots,
+        hotspotStride: FIRE_HOTSPOT_STRIDE,
         total: rows,
       };
     },
@@ -262,8 +323,9 @@ export async function parseCsvStream(
   stream: ReadableStream<Uint8Array>,
   acc: FirmsAccumulator,
   maxBytes: number = 40 * 1024 * 1024,
+  sensor?: string,
 ): Promise<number> {
-  acc.beginFile();
+  acc.beginFile(sensor);
   const reader = stream.getReader();
   const decoder = new TextDecoder("utf-8");
   let carry = "";
@@ -322,7 +384,7 @@ export async function fetchFires(
         failures.push(`${file.sensor}: HTTP ${response.status}`);
         continue;
       }
-      const bytes = await parseCsvStream(response.body, acc);
+      const bytes = await parseCsvStream(response.body, acc, undefined, file.sensor);
       // A real file always has at least the header line; an empty body is a failed download, not "no fires".
       if (bytes < MIN_CSV_BYTES) failures.push(`${file.sensor}: empty body (${bytes} B)`);
       else sources.push(file.sensor);

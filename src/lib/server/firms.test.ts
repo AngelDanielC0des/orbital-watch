@@ -75,7 +75,13 @@ describe("accumulator", () => {
     const la = cellIndex(34.5, -118.25);
     const at = dto.grid.cells.indexOf(la);
     expect(dto.grid.cells.slice(at, at + 3)).toEqual([la, densityLevel(2), intensityLevel(120.8)]);
-    expect(dto.hotspots).toEqual([34.5, -118.25, 120.8, 0, 34.5, -118.26, 12, 1, -12.345, 131.234, 5.4, 1]);
+    expect(dto.hotspotStride).toBe(7);
+    const minutes = (iso: string): number => Math.round((Date.parse(dto.generatedAt) - Date.parse(iso)) / 60000);
+    expect(dto.hotspots).toEqual([
+      34.5, -118.25, 120.8, 0, 2, minutes("2026-11-02T21:05:00Z"), 20,
+      34.5, -118.26, 12, 1, 1, minutes("2026-11-01T00:30:00Z"), 20,
+      -12.345, 131.234, 5.4, 1, 1, minutes("2026-11-02T04:12:00Z"), 20,
+    ]);
   });
 
   it("handles reordered and extra columns and CRLF", () => {
@@ -85,7 +91,9 @@ describe("accumulator", () => {
     for (const line of csv.split("\n")) acc.pushLine(line);
     expect(acc.rows).toBe(1);
     const dto = acc.finish("24h", ["NOAA-21"]);
-    expect(dto.hotspots).toEqual([-3.5, 10.25, 7.5, 0]);
+    expect(dto.hotspots.slice(0, 4)).toEqual([-3.5, 10.25, 7.5, 0]);
+    expect(dto.hotspots[4]).toBe(-1);
+    expect(dto.hotspots[6]).toBe(0);
     expect(dto.acqRange?.from).toBe("2026-11-02T09:05:00Z");
   });
 
@@ -113,6 +121,26 @@ describe("accumulator", () => {
     expect(acc.rejected).toBe(2);
   });
 
+  it("parses confidence letters and words, satellite column and sensor fallback", () => {
+    const csv = [
+      "latitude,longitude,acq_date,acq_time,frp,daynight,confidence",
+      "1,2,2026-11-02,0100,9,D,l",
+      "1,3,2026-11-02,0100,8,D,high",
+      "1,4,2026-11-02,0100,7,D,nominal",
+      "1,5,2026-11-02,0100,6,D,zzz",
+    ].join("\n");
+    const acc = createFirmsAccumulator();
+    acc.beginFile("NOAA-21");
+    for (const line of csv.split("\n")) acc.pushLine(line);
+    const dto = acc.finish("24h", ["NOAA-21"]);
+    const rec = (n: number) => dto.hotspots.slice(n * 7, n * 7 + 7);
+    expect([0, 1, 2, 3].map((n) => rec(n)[4])).toEqual([0, 2, 1, -1]);
+    expect([0, 1, 2, 3].map((n) => rec(n)[6])).toEqual([21, 21, 21, 21]);
+    expect(rec(0)[5]).toBeGreaterThanOrEqual(0);
+    const col = feed(["latitude,longitude,acq_date,acq_time,frp,daynight,satellite", "1,2,2026-11-02,0100,9,D,J2"].join("\n"));
+    expect(col.finish("24h", []).hotspots[6]).toBe(21);
+  });
+
   it("expects a new header after beginFile", () => {
     const acc = feed(CSV);
     acc.beginFile();
@@ -128,8 +156,8 @@ describe("accumulator", () => {
     }
     const dto = feed(lines.join("\n")).finish("24h", ["NOAA-20"], 5);
     expect(dto.total).toBe(50);
-    expect(dto.hotspots).toHaveLength(20);
-    const frps = dto.hotspots.filter((_, i) => i % 4 === 2);
+    expect(dto.hotspots).toHaveLength(35);
+    const frps = dto.hotspots.filter((_, i) => i % 7 === 2);
     expect(frps).toEqual([50, 49, 48, 47, 46]);
   });
 

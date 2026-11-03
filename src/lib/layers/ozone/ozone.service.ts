@@ -6,6 +6,7 @@ import type { LayerError, OzoneDescriptor, OzoneLayerConfig, RasterImage, Raster
 import { fetchEnvelope, withFlags } from "../http";
 import { GeoCache, dedupe } from "../geo-cache.service";
 import { err, layerError, ok, toLayerError } from "../result";
+import { buildDuGrid, DU_GRID_COLS, DU_GRID_ROWS } from "./du-grid";
 import { isFiniteNumber, isIsoDate, isRecord, isString } from "../validate";
 
 /** Remote hosts the ozone image may come from. */
@@ -53,12 +54,35 @@ export interface DecodedImage {
   image: RasterImage;
   flipped: boolean;
   coverage: number | null;
+  /** Optional 360×180 RGBA copy of the image as drawn (rows bottom-up when `flipped`), for the Dobson-unit grid. */
+  sample?: { rgba: Uint8ClampedArray; flipped: boolean };
+}
+
+/** Latest Dobson-unit grid built from a successfully loaded ozone image. */
+let latest: { grid: Float32Array; date: string; product: string } | null = null;
+
+/** Dobson-unit grid of the most recently loaded (non-empty) ozone image, or null before the first load. */
+export function getOzoneDuGrid(): { grid: Float32Array; date: string; product: string } | null {
+  return latest;
 }
 
 /** Turns an image blob into a texture-ready image. Injectable for tests. */
 export type ImageDecoder = (blob: Blob) => Promise<DecodedImage>;
 
 const isSafari = (): boolean => typeof navigator !== "undefined" && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+function drawSample(image: RasterImage): Uint8ClampedArray | null {
+  if (typeof OffscreenCanvas === "undefined") return null;
+  const context = new OffscreenCanvas(DU_GRID_COLS, DU_GRID_ROWS).getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+  context.drawImage(image, 0, 0, DU_GRID_COLS, DU_GRID_ROWS);
+  return context.getImageData(0, 0, DU_GRID_COLS, DU_GRID_ROWS).data;
+}
+
+function withSample(image: RasterImage, flipped: boolean): DecodedImage {
+  const rgba = drawSample(image);
+  return { image, flipped, coverage: measureCoverage(image), ...(rgba ? { sample: { rgba, flipped } } : {}) };
+}
 
 function measureCoverage(image: RasterImage): number | null {
   if (typeof OffscreenCanvas === "undefined") return null;
@@ -93,10 +117,10 @@ function loadHtmlImage(blob: Blob): Promise<HTMLImageElement> {
 export const defaultDecoder: ImageDecoder = async (blob) => {
   if (typeof createImageBitmap === "function" && !isSafari()) {
     const image = await createImageBitmap(blob, { imageOrientation: "flipY", premultiplyAlpha: "none", colorSpaceConversion: "none" });
-    return { image, flipped: true, coverage: measureCoverage(image) };
+    return withSample(image, true);
   }
   const image = await loadHtmlImage(blob);
-  return { image, flipped: false, coverage: measureCoverage(image) };
+  return withSample(image, false);
 };
 
 const blobCache = new GeoCache<Blob>({ ttlMs: 6 * 3_600_000, maxEntries: 4 });
@@ -187,6 +211,13 @@ export function createOzoneProvider(deps: OzoneProviderDeps = {}): DataProvider<
         }
         const empty = decoded.coverage !== null && decoded.coverage < MIN_COVERAGE;
         const date = usedSnapshotRetry ? OZONE_SNAPSHOT_DATE : descriptor.date;
+        if (!empty && decoded.sample) {
+          latest = {
+            grid: buildDuGrid(decoded.sample.rgba, DU_GRID_COLS, DU_GRID_ROWS, decoded.sample.flipped),
+            date,
+            product: usedSnapshotRetry ? "snapshot" : descriptor.product,
+          };
+        }
         return ok({
           payload: { kind: "raster", image: decoded.image, flipped: decoded.flipped, date },
           dataDate: date,

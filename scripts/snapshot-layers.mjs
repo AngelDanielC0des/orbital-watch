@@ -35,7 +35,7 @@ try {
   await mkdir(DATA_DIR, { recursive: true });
   const pollution = await fetchLive("/api/orbital/pollution");
   const fires = await fetchLive("/api/orbital/fires?window=24h");
-  if (Array.isArray(fires.hotspots)) fires.hotspots = fires.hotspots.slice(0, MAX_HOTSPOTS * 4);
+  if (Array.isArray(fires.hotspots)) fires.hotspots = fires.hotspots.slice(0, MAX_HOTSPOTS * (fires.hotspotStride ?? 4));
 
   const manifestPath = path.join(DATA_DIR, "snapshots.json");
   let manifest = {};

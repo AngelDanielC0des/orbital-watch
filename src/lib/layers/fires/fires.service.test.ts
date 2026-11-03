@@ -6,7 +6,7 @@ import { __resetFiresCacheForTests, createFiresProvider, isFiresDTO, toHeatmapPa
 
 function makeDto(over: Partial<FiresDTO> = {}): FiresDTO {
   const hotspots: number[] = [];
-  for (let i = 0; i < 1000; i += 1) hotspots.push(10 + (i % 50) * 0.1, 20, 500 - i * 0.4, i % 2);
+  for (let i = 0; i < 1000; i += 1) hotspots.push(10 + (i % 50) * 0.1, 20, 500 - i * 0.4, i % 2, 1, 30, 20);
   return {
     window: "24h",
     generatedAt: "2026-11-02T12:00:00.000Z",
@@ -14,6 +14,7 @@ function makeDto(over: Partial<FiresDTO> = {}): FiresDTO {
     sources: ["NOAA-20", "NOAA-21"],
     grid: { cols: 720, rows: 360, cells: [0, 10, 20, 719, 255, 128, 259199, 1, 2] },
     hotspots,
+    hotspotStride: 7,
     total: 1234,
     ...over,
   };
@@ -46,13 +47,28 @@ describe("toHeatmapPayload", () => {
   it("filters day/night and caps", () => {
     const day = toHeatmapPayload(makeDto(), { cap: 2000, dayNight: "day" });
     expect(day.hotspotCount).toBe(500);
-    for (let i = 0; i < day.hotspotCount; i += 1) expect(day.hotspots[i * 4 + 3]).toBe(1);
+    for (let i = 0; i < day.hotspotCount; i += 1) expect(day.hotspots[i * 7 + 3]).toBe(1);
     const night = toHeatmapPayload(makeDto(), { cap: 2000, dayNight: "night" });
     expect(night.hotspotCount).toBe(500);
     expect(night.hotspots[3]).toBe(0);
     const capped = toHeatmapPayload(makeDto(), { cap: 10, dayNight: "all" });
     expect(capped.hotspotCount).toBe(10);
-    expect(capped.hotspots).toHaveLength(40);
+    expect(capped.hotspots).toHaveLength(70);
+  });
+
+  it("propagates the stride and full records", () => {
+    const p = toHeatmapPayload(makeDto(), { cap: 3, dayNight: "all" });
+    expect(p.hotspotStride).toBe(7);
+    expect(Array.from(p.hotspots.slice(7, 14)).map((v) => Math.round(v))).toEqual([10, 20, 500, 1, 1, 30, 20]);
+  });
+
+  it("keeps legacy stride-4 DTOs at stride 4", () => {
+    const legacy = makeDto({ hotspots: [1, 2, 3, 1, 4, 5, 6, 0], hotspotStride: undefined });
+    expect(isFiresDTO(legacy)).toBe(true);
+    const p = toHeatmapPayload(legacy, { cap: 10, dayNight: "day" });
+    expect(p.hotspotStride).toBe(4);
+    expect(p.hotspotCount).toBe(1);
+    expect(Array.from(p.hotspots)).toEqual([1, 2, 3, 1]);
   });
 
   it("falls back to generatedAt without acqRange", () => {
@@ -70,8 +86,13 @@ describe("isFiresDTO", () => {
     expect(isFiresDTO(makeDto({ grid: { cols: 720, rows: 360, cells: [1.5, 1, 1] } }))).toBe(false);
     expect(isFiresDTO(makeDto({ grid: { cols: 720, rows: 360, cells: [1, 256, 1] } }))).toBe(false);
     expect(isFiresDTO(makeDto({ hotspots: [1, 2, 3] }))).toBe(false);
-    expect(isFiresDTO(makeDto({ hotspots: [95, 2, 3, 1] }))).toBe(false);
-    expect(isFiresDTO(makeDto({ hotspots: [1, 2, -3, 1] }))).toBe(false);
+    expect(isFiresDTO(makeDto({ hotspots: [95, 2, 3, 1, 1, 0, 20] }))).toBe(false);
+    expect(isFiresDTO(makeDto({ hotspots: [1, 2, -3, 1, 1, 0, 20] }))).toBe(false);
+    expect(isFiresDTO(makeDto({ hotspots: [1, 2, 3, 1, 3, 0, 20] }))).toBe(false);
+    expect(isFiresDTO(makeDto({ hotspots: [1, 2, 3, 1, 1, -1, 20] }))).toBe(false);
+    expect(isFiresDTO(makeDto({ hotspots: [1, 2, 3, 1, 1, 0, 22] }))).toBe(false);
+    expect(isFiresDTO(makeDto({ hotspots: [1, 2, 3, 1, -1, 0, 0] }))).toBe(true);
+    expect(isFiresDTO(makeDto({ hotspotStride: 5 }))).toBe(false);
     expect(isFiresDTO(makeDto({ total: -1 }))).toBe(false);
   });
 });
@@ -110,7 +131,7 @@ describe("firesProvider", () => {
   });
 
   it("caps at the lo tier", async () => {
-    const dto = makeDto({ hotspots: Array.from({ length: 1000 }, (_, i) => [1, 2, 1000 - i, 1]).flat() });
+    const dto = makeDto({ hotspots: Array.from({ length: 1000 }, (_, i) => [1, 2, 1000 - i, 1, 1, 0, 20]).flat() });
     // 1000 hotspots exceed the lo cap of 800.
     fetchMock.mockImplementation(async () => envelope(dto));
     const lo = await createFiresProvider().load({ window: "7d", dayNight: "all" }, ctx("lo"));

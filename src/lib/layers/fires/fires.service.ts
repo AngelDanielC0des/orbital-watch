@@ -2,6 +2,7 @@
  * Fires data service (client): fetches `/api/orbital/fires`, validates the sparse DTO, caches it per
  * window for an hour and expands it into the dense `HeatmapPayload` the engine consumes.
  */
+import { FIRE_HOTSPOT_STRIDE } from "@/types/layers";
 import type { ApiMeta, FireWindow, FiresDTO, FiresLayerConfig, HeatmapPayload, DataProvider, LayerError, ProviderContext, ProviderLoad, Result } from "@/types/layers";
 import { GeoCache, dedupe } from "@/lib/layers/geo-cache.service";
 import { fetchEnvelope, withFlags } from "@/lib/layers/http";
@@ -14,6 +15,7 @@ const COLS = 720;
 const ROWS = 360;
 const CELLS = COLS * ROWS;
 const MAX_HOTSPOTS = 2000;
+const LEGACY_STRIDE = 4;
 const TTL_MS = 60 * 60 * 1000;
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000;
 const SNAPSHOT_SUFFIX = " · instantánea";
@@ -37,16 +39,34 @@ export function isFiresDTO(value: unknown): value is FiresDTO {
     if (!Number.isInteger(index) || !inRange(index, 0, CELLS - 1)) return false;
     if (!inRange(cells[i + 1], 0, 255) || !inRange(cells[i + 2], 0, 255)) return false;
   }
-  if (!Array.isArray(hotspots) || hotspots.length % 4 !== 0 || hotspots.length > 4 * MAX_HOTSPOTS) return false;
-  for (let i = 0; i < hotspots.length; i += 4) {
+  const stride = value.hotspotStride === undefined ? LEGACY_STRIDE : value.hotspotStride;
+  if (stride !== LEGACY_STRIDE && stride !== FIRE_HOTSPOT_STRIDE) return false;
+  if (!Array.isArray(hotspots) || hotspots.length % stride !== 0 || hotspots.length > stride * MAX_HOTSPOTS) return false;
+  for (let i = 0; i < hotspots.length; i += stride) {
     const frp: unknown = hotspots[i + 2];
     if (!inRange(hotspots[i], -90, 90) || !inRange(hotspots[i + 1], -180, 180)) return false;
     if (!isFiniteNumber(frp) || frp < 0) return false;
+    if (stride === FIRE_HOTSPOT_STRIDE) {
+      const conf: unknown = hotspots[i + 4];
+      const minutes: unknown = hotspots[i + 5];
+      const sat: unknown = hotspots[i + 6];
+      if (conf !== -1 && conf !== 0 && conf !== 1 && conf !== 2) return false;
+      if (!isFiniteNumber(minutes) || minutes < 0) return false;
+      if (sat !== 0 && sat !== 20 && sat !== 21) return false;
+    }
   }
   return true;
 }
 
 /** Expands the sparse DTO into dense grids and a day/night-filtered, capped hotspot buffer. */
+/** Last DTO + payload handed to the engine (hotspot pick index → `payload.hotspots`, cell index → payload grid). */
+let latestFires: { dto: FiresDTO; payload: HeatmapPayload; isFallback: boolean } | null = null;
+
+/** ADR-16: data behind the fire layer currently on the globe, or null before the first load. */
+export function getLatestFires(): { dto: FiresDTO; payload: HeatmapPayload; isFallback: boolean } | null {
+  return latestFires;
+}
+
 export function toHeatmapPayload(dto: FiresDTO, opts: { cap: number; dayNight: "all" | "day" | "night" }): HeatmapPayload {
   const density = new Uint8Array(CELLS);
   const intensity = new Uint8Array(CELLS);
@@ -57,13 +77,14 @@ export function toHeatmapPayload(dto: FiresDTO, opts: { cap: number; dayNight: "
     intensity[index] = cells[i + 2];
   }
   const wanted = opts.dayNight === "all" ? -1 : opts.dayNight === "day" ? 1 : 0;
+  const stride = dto.hotspotStride === LEGACY_STRIDE ? LEGACY_STRIDE : dto.hotspotStride === undefined ? LEGACY_STRIDE : FIRE_HOTSPOT_STRIDE;
   const max = Math.min(opts.cap, MAX_HOTSPOTS);
-  const out = new Float32Array(max * 4);
+  const out = new Float32Array(max * stride);
   let count = 0;
   const { hotspots } = dto;
-  for (let i = 0; i < hotspots.length && count < max; i += 4) {
+  for (let i = 0; i + stride <= hotspots.length && count < max; i += stride) {
     if (wanted !== -1 && hotspots[i + 3] !== wanted) continue;
-    out.set([hotspots[i], hotspots[i + 1], hotspots[i + 2], hotspots[i + 3]], count * 4);
+    for (let k = 0; k < stride; k += 1) out[count * stride + k] = hotspots[i + k];
     count += 1;
   }
   return {
@@ -72,7 +93,8 @@ export function toHeatmapPayload(dto: FiresDTO, opts: { cap: number; dayNight: "
     rows: ROWS,
     density,
     intensity,
-    hotspots: out.slice(0, count * 4),
+    hotspots: out.slice(0, count * stride),
+    hotspotStride: stride,
     hotspotCount: count,
     scale: FIRE_HEAT_STOPS,
     date: dto.acqRange?.to ?? dto.generatedAt,
@@ -122,6 +144,7 @@ export function createFiresProvider(deps: { now?: () => number } = {}): DataProv
         if (ctx.signal.aborted) return err(layerError("aborted"));
         const { dto, meta, fromSnapshot } = cached;
         const payload = toHeatmapPayload(dto, { cap: HOTSPOT_CAP[ctx.tier], dayNight: config.dayNight });
+        latestFires = { dto, payload, isFallback: meta.fallback };
         const parsed = Date.parse(meta.fetchedAt);
         return ok({
           payload,
