@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AtmosphereLayerId, EnvMode, EnvironmentalLayerId, LayerConfigMap, LayerError, LayerState } from "@/types/layers";
+import type { AtmosphereLayerId, EnvMode, EnvironmentalLayerId, LayerConfigMap, LayerError, LayerPick, LayerState } from "@/types/layers";
 
 /** Per-layer UI state, keyed by environmental layer id. */
 export type EnvLayerStates = { [K in EnvironmentalLayerId]: LayerState<LayerConfigMap[K]> };
@@ -24,6 +24,12 @@ export interface LayersStoreState {
   mode: EnvMode;
   /** Layer shown while `mode === "atmosphere"`. */
   atmosphereLayer: AtmosphereLayerId;
+  /** ADR-16: overlay hit under the mouse (engine event, ≤ 8 Hz, only on change). */
+  hoveredPick: LayerPick | null;
+  /** ADR-16: clicked overlay hit shown in the point card. */
+  selectedPick: LayerPick | null;
+  setHoveredPick(pick: LayerPick | null): void;
+  setSelectedPick(pick: LayerPick | null): void;
   /** Switches mode and makes exactly the mode's layer visible (none in "orbit"). */
   setMode(mode: EnvMode): void;
   /** Chooses the atmosphere layer; applies immediately when the atmosphere mode is active. */
@@ -142,6 +148,8 @@ function initialState() {
     legendDismissed: false,
     mode: "orbit" as EnvMode,
     atmosphereLayer: "pollution" as AtmosphereLayerId,
+    hoveredPick: null as LayerPick | null,
+    selectedPick: null as LayerPick | null,
   };
 }
 
@@ -220,16 +228,19 @@ export const useLayersStore = create<LayersStoreState>((set) => ({
       return { layers, mode, atmosphereLayer, lastEnabled: layerForMode(mode, atmosphereLayer) };
     }),
 
+  setHoveredPick: (hoveredPick) => set({ hoveredPick }),
+  setSelectedPick: (selectedPick) => set({ selectedPick }),
+
   setMode: (mode) =>
     set((state) => {
       const layers = applyMode(state.layers, mode, state.atmosphereLayer);
-      return { mode, layers, lastEnabled: layerForMode(mode, state.atmosphereLayer), legendDismissed: false };
+      return { mode, layers, lastEnabled: layerForMode(mode, state.atmosphereLayer), legendDismissed: false, hoveredPick: null, selectedPick: null };
     }),
 
   setAtmosphereLayer: (atmosphereLayer) =>
     set((state) => {
       if (state.mode !== "atmosphere") return { atmosphereLayer };
-      return { atmosphereLayer, layers: applyMode(state.layers, "atmosphere", atmosphereLayer), lastEnabled: atmosphereLayer };
+      return { atmosphereLayer, layers: applyMode(state.layers, "atmosphere", atmosphereLayer), lastEnabled: atmosphereLayer, hoveredPick: null, selectedPick: null };
     }),
 
   resetAll: () => set(initialState()),

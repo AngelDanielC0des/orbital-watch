@@ -1,7 +1,7 @@
 import type { Object3D, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import type { QualityTier } from "@/engine/config";
 import type { BodyDef, SelectedSatelliteState } from "./orbital";
-import type { LayerDataPayload } from "./layers";
+import type { LayerDataPayload, LayerPick } from "./layers";
 
 export type ViewMode = "earth" | "solar" | "galaxy";
 export type SatelliteFilter = "all" | "debris" | "starlink" | "projected";
@@ -119,6 +119,8 @@ export interface EngineCommandFacade {
   setLayerData?(layerId: string, payload: LayerDataPayload): void;
   /** ADR-15: drops the data of a `DataLayer` and frees its GPU resources (layer stays registered). */
   clearLayerData?(layerId: string): void;
+  /** ADR-16: clears the selected overlay point (card closed by the UI); no event is emitted. */
+  clearLayerPick?(): void;
   dispose(): void;
 }
 
@@ -127,4 +129,12 @@ export interface DataLayer extends ILayer {
   setOpacity(opacity: number): void;
   setData(payload: LayerDataPayload): void;
   clearData(): void;
+  /** ADR-16: nearest hit under canvas-local px (x, y) within `radiusPx`, or null. Never allocates per call beyond the result. */
+  pick?(x: number, y: number, camera: PerspectiveCamera, width: number, height: number, radiusPx: number): LayerPick | null;
+  /** ADR-16: emphasised point (-1 = none); purely visual. */
+  setHovered?(index: number): void;
+  /** ADR-16: selected point (-1 = none); purely visual. */
+  setSelected?(index: number): void;
+  /** ADR-16: world position of point `index` (for the hover ring); false when not drawable. */
+  pointWorld?(index: number, out: Vector3): boolean;
 }

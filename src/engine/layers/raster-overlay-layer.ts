@@ -13,11 +13,13 @@ import {
   SRGBColorSpace,
   Texture,
   Vector3,
+  type PerspectiveCamera,
   type WebGLRenderer,
 } from "three";
-import type { ILayer, LayerDataPayload, LayerFactory, LayerUpdateContext } from "@/engine/contract";
+import type { ILayer, LayerDataPayload, LayerFactory, LayerPick, LayerUpdateContext } from "@/engine/contract";
 import { OVERLAY_SPHERE_VERTEX, RASTER_FRAGMENT } from "@/engine/render/overlay-shaders";
 import { closeImage, OverlayLayerBase } from "./overlay-base";
+import { localToLatLon, rayToLocal } from "./overlay-pick";
 
 export const OZONE_RADIUS = 1.009;
 
@@ -31,11 +33,14 @@ export class RasterOverlayLayer extends OverlayLayerBase {
   private readonly material: ShaderMaterial;
   private readonly mesh: Mesh<SphereGeometry, ShaderMaterial>;
   private texture: Texture | null = null;
+  private readonly radius: number;
+  private readonly hit = new Vector3();
 
   /** `radius` must differ from other overlays (clouds 1.006, fire grid 1.0095, points 1.011) to avoid z-fighting. */
   constructor(id: string, name: string, host: ILayer | undefined, opacity: number, renderer: WebGLRenderer, segments: number, radius = OZONE_RADIUS) {
     super(id, name, host, opacity);
     this.renderer = renderer;
+    this.radius = radius;
     this.geometry = new SphereGeometry(radius, segments, segments / 2);
     this.material = new ShaderMaterial({
       uniforms: {
@@ -87,6 +92,14 @@ export class RasterOverlayLayer extends OverlayLayerBase {
     this.material.uniforms.uMap.value = texture;
     previous?.dispose();
     return true;
+  }
+
+  /** ADR-16: surface hit (lat/lon under the pointer); the UI samples the value (e.g. ozone DU grid). */
+  pick(x: number, y: number, camera: PerspectiveCamera, width: number, height: number): LayerPick | null {
+    if (!this.visible || !this.hasData || !this.object3d.visible) return null;
+    if (!rayToLocal(this.object3d, x, y, camera, width, height, this.radius, this.hit)) return null;
+    const { lat, lon } = localToLatLon(this.hit);
+    return { layerId: "ozone", kind: "surface", index: -1, lat, lon, x, y };
   }
 
   protected release(): void {

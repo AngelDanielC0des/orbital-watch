@@ -20,6 +20,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LayerManager } from "@/lib/engine/layer-manager";
 import { closeImage } from "./layers/overlay-base";
 import { ENGINE_THEME } from "./theme";
+import type { LayerPick } from "@/types/layers";
 import { createFrameBus } from "@/lib/frame-bus";
 import { fetchCelestrak, generateSyntheticCatalog } from "@/lib/orbital/catalog";
 import { Category, gmst, sunDirection } from "@/lib/orbital/orbit-math";
@@ -746,9 +747,51 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     timer: null as ReturnType<typeof setTimeout> | null,
     pos: new Vector3(),
   };
-  const hoverActive = () => hover.index >= 0 || hover.bodyKey !== null;
+  // ---- ADR-16: environmental overlay hover/pick (pollution samples, fire hotspots/cells, ozone surface) ----
+  const LAYER_PICK_ORDER = ["pollution", "fires", "ozone"] as const;
+  const layerHover = { pick: null as LayerPick | null, key: "" };
+  const layerSelected = { id: "", index: -1 };
+  const dataLayersShown = () =>
+    universe.view === "earth" && !satsLayer.visible && LAYER_PICK_ORDER.some((id) => layers.get(id)?.visible === true);
+  function pickDataLayers(x: number, y: number, radiusPx: number): LayerPick | null {
+    for (const id of LAYER_PICK_ORDER) {
+      const hit = layers.getDataLayer(id)?.pick?.(x, y, camera, size.w, size.h, radiusPx) ?? null;
+      if (hit) return hit;
+    }
+    return null;
+  }
+  /** Identity of a hover target: the same point/cell keeps its key; surface hovers change per 1° cell. */
+  const pickKey = (p: LayerPick | null) =>
+    p === null ? "" : p.kind === "surface" ? `${p.layerId}:s:${Math.floor(p.lat)}:${Math.floor(p.lon)}` : `${p.layerId}:${p.kind}:${p.index}`;
+  function setLayerHover(p: LayerPick | null): void {
+    const key = pickKey(p);
+    if (key === layerHover.key) {
+      layerHover.pick = p;
+      return;
+    }
+    const prev = layerHover.pick;
+    if (prev?.kind === "point") layers.getDataLayer(prev.layerId)?.setHovered?.(-1);
+    if (p?.kind === "point") layers.getDataLayer(p.layerId)?.setHovered?.(p.index);
+    layerHover.pick = p;
+    layerHover.key = key;
+    const pointing = p !== null && p.kind !== "surface";
+    canvas.classList.toggle("is-pointing", pointing);
+    canvas.style.cursor = pointing ? "pointer" : p ? "crosshair" : "";
+    if (!pointing) hoverLayer.hide();
+    events.onLayerHover?.(p);
+  }
+  function selectLayerPoint(p: LayerPick | null): void {
+    if (layerSelected.index >= 0) layers.getDataLayer(layerSelected.id)?.setSelected?.(-1);
+    layerSelected.id = p?.kind === "point" ? p.layerId : "";
+    layerSelected.index = p?.kind === "point" ? p.index : -1;
+    if (p?.kind === "point") layers.getDataLayer(p.layerId)?.setSelected?.(p.index);
+  }
+  const layerPointHovered = () => layerHover.pick?.kind === "point";
+
+  const hoverActive = () => hover.index >= 0 || hover.bodyKey !== null || layerPointHovered();
   function clearHover(): void {
     hover.seq++;
+    if (layerHover.pick) setLayerHover(null);
     hover.index = -1;
     hover.bodyKey = null;
     hoverLayer.hide();
@@ -780,6 +823,8 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     if (universe.busy) return clearHover();
     if (universe.view === "solar") {
       setHover(-1, pickBody(x, y, PICK_RADIUS_MOUSE)?.key ?? null);
+    } else if (dataLayersShown()) {
+      setLayerHover(pickDataLayers(x, y, PICK_RADIUS_MOUSE));
     } else if (universe.view === "earth" && sats && satsLayer.visible) {
       if (hover.pending) return scheduleHover();
       hover.pending = true;
@@ -808,7 +853,12 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     const pxScale = (size.h * 0.5) / Math.tan(MathUtils.degToRad(camera.fov) * 0.5);
     let ringPx = HOVER_RING_PX;
     let diskPx = 0;
-    if (hover.index >= 0) {
+    const layerPoint = layerHover.pick?.kind === "point" ? layerHover.pick : null;
+    if (layerPoint) {
+      if (!nearEarth || universe.view !== "earth" || universe.busy || !layers.getDataLayer(layerPoint.layerId)?.pointWorld?.(layerPoint.index, hover.pos)) {
+        return clearHover();
+      }
+    } else if (hover.index >= 0) {
       if (!sats || !satsLayer.visible || !nearEarth || universe.view !== "earth" || universe.busy || !sats.isVisible(hover.index, sim.ms)) {
         return clearHover();
       }
@@ -824,7 +874,7 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     const dx = (hoverScreen.x * 0.5 + 0.5) * size.w - mouse.x;
     const dy = (0.5 - hoverScreen.y * 0.5) * size.h - mouse.y;
     if (!mouse.inside || hoverScreen.z > 1 || Math.hypot(dx, dy) - diskPx > PICK_RADIUS_MOUSE * 1.6) return clearHover();
-    hoverLayer.place(hover.pos, ringPx, hover.index >= 0, clock.elapsedTime);
+    hoverLayer.place(hover.pos, ringPx, hover.index >= 0 || layerPoint !== null, clock.elapsedTime);
   }
 
   canvas.addEventListener(
@@ -855,6 +905,10 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
       if (universe.view === "solar") {
         const hit = pickBody(x, y, radius);
         if (hit && hit.key !== universe.focus) void pickLabel(hit.key);
+      } else if (dataLayersShown()) {
+        const hit = pickDataLayers(x, y, radius);
+        selectLayerPoint(hit);
+        events.onLayerPick?.(hit);
       } else if (universe.view === "earth" && sats && satsLayer.visible) {
         sats.pickAsync(x, y, camera, size.w, size.h, sim.ms, radius).then((index: number) => {
           if (disposed) return;
@@ -1411,6 +1465,7 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
       else closeImage(payload);
     },
     clearLayerData: (id) => layers.getDataLayer(id)?.clearData(),
+    clearLayerPick: () => selectLayerPoint(null),
     pickLabel,
     setTimelineInset,
     findSatellites,

@@ -195,6 +195,8 @@ export interface PointsPayload {
   /** Colour ramp used to build the LUT (same stops as the legend). */
   scale: readonly ColorStop[];
   categorical: boolean;
+  /** Optional per-point kind (1 = city, 0 = grid node): grid nodes draw smaller and hollow. */
+  kinds?: Uint8Array;
   date: string;
 }
 
@@ -207,12 +209,33 @@ export interface HeatmapPayload {
   density: Uint8Array;
   /** Same layout, log-scaled max FRP 0–255. */
   intensity: Uint8Array;
-  /** Stride 4: lat, lon, frp (MW), day (1 = day, 0 = night). Sorted by FRP desc. */
+  /**
+   * Stride `hotspotStride` (7 since plan v2; 4 in older snapshots): lat, lon, frp (MW), day (1|0),
+   * confidence (0 low · 1 nominal · 2 high · -1 unknown), minutes before `generatedAt`, satellite (20 | 21 | 0 unknown).
+   * Sorted by FRP desc. The engine only reads the first 4 fields.
+   */
   hotspots: Float32Array;
+  /** Values per hotspot in `hotspots` (default 4 when absent). */
+  hotspotStride?: number;
   hotspotCount: number;
   /** Heat ramp for the density LUT (same stops as the legend); the engine keeps its default when absent. */
   scale?: readonly ColorStop[];
   date: string;
+}
+
+/**
+ * A hit on an environmental layer (plan v2 / ADR-16). `point` = pollution sample or fire hotspot (index into the
+ * pushed payload), `cell` = fire density cell (index = row * cols + col), `surface` = ozone (index -1, UI samples DU).
+ * x/y are canvas-local CSS px at pick time.
+ */
+export interface LayerPick {
+  layerId: EnvironmentalLayerId;
+  kind: "point" | "cell" | "surface";
+  index: number;
+  lat: number;
+  lon: number;
+  x: number;
+  y: number;
 }
 
 /** Anything `EngineHandle.setLayerData` accepts. */
@@ -270,6 +293,9 @@ export interface ApiMeta {
   fallback: boolean;
 }
 
+/** Values per FIRMS hotspot in the current DTO/payload format (plan v2). */
+export const FIRE_HOTSPOT_STRIDE = 7;
+
 /** Uniform envelope of the three routes. */
 export type ApiEnvelope<T> =
   | { ok: true; data: T; meta: ApiMeta }
@@ -323,8 +349,13 @@ export interface FiresDTO {
     /** Stride 3: cell index (row-major from NW), density 0–255 (log count), intensity 0–255 (log max FRP). */
     cells: number[];
   };
-  /** Stride 4: lat, lon, frp, day (1|0), sorted by FRP desc, capped server-side (2 000). */
+  /**
+   * Stride `FIRE_HOTSPOT_STRIDE` = 7: lat, lon, frp, day (1|0), confidence (0|1|2|-1), minutes before
+   * `generatedAt`, satellite (20|21|0). Sorted by FRP desc, capped server-side (2 000). Legacy snapshots use stride 4.
+   */
   hotspots: number[];
+  /** Values per hotspot (7; absent = legacy 4). */
+  hotspotStride?: number;
   /** Total valid detections in the window (before binning). */
   total: number;
 }

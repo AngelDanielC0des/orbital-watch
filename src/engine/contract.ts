@@ -8,9 +8,10 @@ import type { PerspectiveCamera, Scene, WebGLRenderer } from "three";
 import type { FrameBus } from "@/lib/frame-bus";
 import type { EngineCommandFacade, ILayer, LayerInitContext, SatelliteFilter, ViewMode } from "@/types/engine";
 import type { BodyDef, CategoryId, SelectedSatelliteState, Sgp4Readout } from "@/types/orbital";
+import type { LayerPick } from "@/types/layers";
 
 export type { DataLayer, EngineCommandFacade, ILayer, LayerInitContext, LayerUpdateContext, SatelliteFilter, ViewMode } from "@/types/engine";
-export type { LayerDataPayload } from "@/types/layers";
+export type { LayerDataPayload, LayerPick } from "@/types/layers";
 
 export type QualityTier = LayerInitContext["tier"];
 
@@ -74,6 +75,10 @@ export interface EngineEvents {
   /** Every 0.5 s. */
   onFps?(fps: number): void;
   onError?(error: EngineError): void;
+  /** ADR-16: hovered overlay hit (≤ 8 Hz, mouse only), null when the pointer leaves it. */
+  onLayerHover?(pick: LayerPick | null): void;
+  /** ADR-16: clicked/tapped overlay hit, null when the click hit nothing on a data layer. */
+  onLayerPick?(pick: LayerPick | null): void;
 }
 
 export type EngineErrorCode = "webgl-unsupported" | "webgl-context-lost" | "catalog-failed" | "boot-failed" | "import-failed";

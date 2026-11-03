@@ -4,6 +4,7 @@
  */
 import type { EngineEvents, TimeTick } from "@/engine/contract";
 import type { useEngineStore } from "@/stores/engine-store";
+import { useLayersStore } from "./layers-store";
 
 type EngineStoreApi = typeof useEngineStore;
 
@@ -69,6 +70,9 @@ export function createEngineBridge(store: EngineStoreApi): EngineEvents {
       lastFpsAt = now;
       s().setFps(Math.round(fps));
     },
+    // ADR-16: overlay picks feed the layers store (tooltip + point card); the engine emits only on change.
+    onLayerHover: (pick) => useLayersStore.getState().setHoveredPick(pick),
+    onLayerPick: (pick) => useLayersStore.getState().setSelectedPick(pick),
     onError: (error) => {
       // `catalog-failed` is non-fatal (synthetic catalog in use): toast only, loader keeps going.
       if (error.code !== "catalog-failed") s().setLoadingError(error.message);

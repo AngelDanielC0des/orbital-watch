@@ -16,14 +16,17 @@ import {
   Sphere,
   SphereGeometry,
   UnsignedByteType,
+  Vector2,
   Vector3,
+  type PerspectiveCamera,
 } from "three";
-import type { ILayer, LayerDataPayload, LayerFactory, LayerUpdateContext } from "@/engine/contract";
+import type { ILayer, LayerDataPayload, LayerFactory, LayerPick, LayerUpdateContext } from "@/engine/contract";
 import { buildLutTexture, updateLutTexture } from "@/engine/render/lut";
 import { HEATMAP_FRAGMENT, HOTSPOT_FRAGMENT, HOTSPOT_VERTEX, OVERLAY_SPHERE_VERTEX } from "@/engine/render/overlay-shaders";
 import { latLonToVector } from "@/lib/orbital/place-index";
 import type { ColorStop } from "@/types/layers";
 import { closeImage, OverlayLayerBase } from "./overlay-base";
+import { cellIndex, facesCamera, localToLatLon, projectToScreen, rayToLocal } from "./overlay-pick";
 
 export const FIRE_GRID_RADIUS = 1.0095;
 const HOTSPOT_RADIUS = 1.0105;
@@ -52,6 +55,8 @@ export class HeatmapLayer extends OverlayLayerBase {
   private hotCapacity = 0;
   private scale: readonly ColorStop[] = HEAT_STOPS;
   private readonly scratch = new Vector3();
+  private readonly screen = new Vector2();
+  private hotCount = 0;
 
   constructor(id: string, name: string, host: ILayer | undefined, opacity: number, reducedMotion: boolean, segments: number) {
     super(id, name, host, opacity);
@@ -87,6 +92,8 @@ export class HeatmapLayer extends OverlayLayerBase {
         uTime: { value: 0 },
         uPulse: { value: reducedMotion ? 0 : 1 },
         uStrongMw: { value: STRONG_MW },
+        uHovered: { value: -1 },
+        uSelected: { value: -1 },
       },
       vertexShader: HOTSPOT_VERTEX,
       fragmentShader: HOTSPOT_FRAGMENT,
@@ -156,7 +163,8 @@ export class HeatmapLayer extends OverlayLayerBase {
       updateLutTexture(this.lut, payload.scale, false);
     }
 
-    const count = Math.max(0, Math.min(payload.hotspotCount, Math.floor(payload.hotspots.length / 4)));
+    const stride = payload.hotspotStride && payload.hotspotStride >= 4 ? payload.hotspotStride : 4;
+    const count = Math.max(0, Math.min(payload.hotspotCount, Math.floor(payload.hotspots.length / stride)));
     if (count > this.hotCapacity) {
       this.hotGeometry.dispose();
       let next = this.hotCapacity;
@@ -170,17 +178,20 @@ export class HeatmapLayer extends OverlayLayerBase {
     const fr = frp.array as Float32Array;
     const ph = phase.array as Float32Array;
     for (let i = 0; i < count; i++) {
-      const lat = payload.hotspots[i * 4];
-      const lon = payload.hotspots[i * 4 + 1];
+      const lat = payload.hotspots[i * stride];
+      const lon = payload.hotspots[i * stride + 1];
       latLonToVector(lat, lon, HOTSPOT_RADIUS, this.scratch);
       pos[i * 3] = this.scratch.x;
       pos[i * 3 + 1] = this.scratch.y;
       pos[i * 3 + 2] = this.scratch.z;
-      fr[i] = payload.hotspots[i * 4 + 2];
+      fr[i] = payload.hotspots[i * stride + 2];
       ph[i] = ((lat * 12.9898 + lon * 78.233) % 6.2832 + 6.2832) % 6.2832;
     }
     for (const attribute of [position, frp, phase]) attribute.needsUpdate = true;
     this.hotGeometry.setDrawRange(0, count);
+    this.hotCount = count;
+    this.setHovered(-1);
+    this.setSelected(-1);
     return any || count > 0;
   }
 
@@ -189,6 +200,70 @@ export class HeatmapLayer extends OverlayLayerBase {
     this.grid?.dispose();
     this.grid = null;
     this.hotGeometry.setDrawRange(0, 0);
+    this.hotCount = 0;
+    this.setHovered(-1);
+    this.setSelected(-1);
+  }
+
+  setVisible(visible: boolean): void {
+    super.setVisible(visible);
+    if (!visible) {
+      this.setHovered(-1);
+      this.setSelected(-1);
+    }
+  }
+
+  /** Hotspot index (cells are not emphasised in the shader). */
+  setHovered(index: number): void {
+    this.hotMaterial.uniforms.uHovered.value = index;
+  }
+
+  setSelected(index: number): void {
+    this.hotMaterial.uniforms.uSelected.value = index;
+  }
+
+  /**
+   * ADR-16: nearest hotspot within `radiusPx`; otherwise the 0.5° density cell under the pointer when it has detections.
+   * Cell picks report `index = row * cols + col` (the payload grid layout).
+   */
+  pick(x: number, y: number, camera: PerspectiveCamera, width: number, height: number, radiusPx: number): LayerPick | null {
+    if (!this.visible || !this.hasData || !this.object3d.visible) return null;
+    this.hotPoints.updateWorldMatrix(true, false);
+    const pos = (this.hotGeometry.getAttribute("position") as BufferAttribute).array as Float32Array;
+    let best = -1;
+    let bestD2 = radiusPx * radiusPx;
+    for (let i = 0; i < this.hotCount; i++) {
+      this.scratch.set(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]).applyMatrix4(this.hotPoints.matrixWorld);
+      if (!facesCamera(this.scratch, camera.position)) continue;
+      if (!projectToScreen(this.scratch, camera, width, height, this.screen)) continue;
+      const d2 = (this.screen.x - x) ** 2 + (this.screen.y - y) ** 2;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = i;
+      }
+    }
+    if (best >= 0) {
+      this.scratch.set(pos[best * 3], pos[best * 3 + 1], pos[best * 3 + 2]);
+      const { lat, lon } = localToLatLon(this.scratch);
+      return { layerId: "fires", kind: "point", index: best, lat, lon, x, y };
+    }
+    const grid = this.grid;
+    if (!grid || !rayToLocal(this.object3d, x, y, camera, width, height, FIRE_GRID_RADIUS, this.scratch)) return null;
+    const { lat, lon } = localToLatLon(this.scratch);
+    const cols = grid.image.width;
+    const rows = grid.image.height;
+    const index = cellIndex(lat, lon, cols, rows);
+    const data = grid.image.data as Uint8Array;
+    if (!(data[index * 2] > 0)) return null;
+    return { layerId: "fires", kind: "cell", index, lat, lon, x, y };
+  }
+
+  pointWorld(index: number, out: Vector3): boolean {
+    if (index < 0 || index >= this.hotCount || !this.object3d.visible) return false;
+    const pos = (this.hotGeometry.getAttribute("position") as BufferAttribute).array as Float32Array;
+    this.hotPoints.updateWorldMatrix(true, false);
+    out.set(pos[index * 3], pos[index * 3 + 1], pos[index * 3 + 2]).applyMatrix4(this.hotPoints.matrixWorld);
+    return true;
   }
 
   protected disposeResources(): void {
