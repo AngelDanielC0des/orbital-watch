@@ -19,6 +19,7 @@ import {
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LayerManager } from "@/lib/engine/layer-manager";
 import { closeImage } from "./layers/overlay-base";
+import { ENGINE_THEME } from "./theme";
 import { createFrameBus } from "@/lib/frame-bus";
 import { fetchCelestrak, generateSyntheticCatalog } from "@/lib/orbital/catalog";
 import { Category, gmst, sunDirection } from "@/lib/orbital/orbit-math";
@@ -590,7 +591,7 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     desired: new Vector3(),
   };
   const trackColors = {
-    default: new Color("#5ff0ff"),
+    default: new Color(ENGINE_THEME.track),
     starlink: new Color("#bfe6ff"),
     alarm: new Color("#ff4a3a"),
   };

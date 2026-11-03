@@ -28,9 +28,9 @@ export function FireWindowSelector({ disabled = false }: FireWindowSelectorProps
             aria-label={FIRE_WINDOW_LABELS[w]}
             disabled={disabled}
             onClick={() => useLayersStore.getState().setConfig("fires", { window: w })}
-            className={`min-h-11 flex-1 rounded-md border px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--signal)] disabled:opacity-40 min-[860px]:min-h-8 ${
+            className={`min-h-11 flex-1 rounded-md border px-2 text-[12px] focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-[var(--signal-glow)] disabled:opacity-40 min-[860px]:min-h-8 ${
               current === w
-                ? "border-transparent bg-[var(--signal)] text-[var(--signal-ink)]"
+                ? "border-[var(--accent)] bg-[var(--signal-soft)] text-[var(--ink)] shadow-[0_0_14px_-2px_var(--signal-glow)]"
                 : "border-[var(--rule)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
             }`}
           >

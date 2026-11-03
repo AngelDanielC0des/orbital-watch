@@ -31,9 +31,9 @@ export function PollutantSelector({ disabled = false }: PollutantSelectorProps) 
             aria-pressed={pollutant === p}
             disabled={disabled}
             onClick={() => select(p)}
-            className={`min-h-8 rounded-md border px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--signal)] disabled:opacity-40 ${
+            className={`min-h-8 rounded-md border px-2 text-[12px] focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-[var(--signal-glow)] disabled:opacity-40 ${
               pollutant === p
-                ? "border-transparent bg-[var(--signal)] text-[var(--signal-ink)]"
+                ? "border-[var(--accent)] bg-[var(--signal-soft)] text-[var(--ink)] shadow-[0_0_14px_-2px_var(--signal-glow)]"
                 : "border-[var(--rule)] text-[var(--ink-dim)] hover:text-[var(--ink)]"
             }`}
           >

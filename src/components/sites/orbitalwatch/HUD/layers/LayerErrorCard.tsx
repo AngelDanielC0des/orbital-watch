@@ -40,7 +40,7 @@ export function LayerErrorCard({ id, error, onRetry }: LayerErrorCardProps) {
       <button
         type="button"
         onClick={onRetry}
-        className="min-h-11 self-start rounded-md border border-[var(--rule-strong)] px-3 text-[var(--ink)] hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--signal)] min-[860px]:min-h-9"
+        className="min-h-11 self-start rounded-md border border-[var(--rule-strong)] px-3 text-[var(--ink)] hover:bg-white/5 focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--signal-glow)] min-[860px]:min-h-9"
       >
         Reintentar
       </button>

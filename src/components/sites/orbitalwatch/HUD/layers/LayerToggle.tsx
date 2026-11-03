@@ -21,16 +21,16 @@ export function LayerToggle({ checked, onChange, label, disabled = false, layerI
       data-layer={layerId}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="group flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--signal)] disabled:opacity-40"
+      className="group flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-1 focus-visible:outline-offset-1 focus-visible:outline-[var(--signal-glow)] disabled:opacity-40"
     >
       <span
         className={`relative block h-[22px] w-10 rounded-full border transition-colors motion-reduce:transition-none ${
-          checked ? "border-transparent bg-[var(--signal)]" : "border-[var(--rule-strong)] bg-white/5"
+          checked ? "border-[var(--accent)] bg-[var(--signal-soft)] shadow-[0_0_14px_-2px_var(--signal-glow)]" : "border-[var(--rule-strong)] bg-white/5"
         }`}
       >
         <span
           className={`absolute left-[2px] top-[2px] block size-4 rounded-full transition-transform motion-reduce:transition-none ${
-            checked ? "translate-x-[18px] bg-[var(--signal-ink)]" : "translate-x-0 bg-[var(--ink-dim)]"
+            checked ? "translate-x-[18px] bg-[var(--accent)]" : "translate-x-0 bg-[var(--ink-dim)]"
           }`}
         />
       </span>

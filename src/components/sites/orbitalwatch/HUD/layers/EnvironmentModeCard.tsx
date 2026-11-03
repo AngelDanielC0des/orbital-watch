@@ -98,12 +98,12 @@ function ModeCardBody({ id, mode, onOpacityPreview }: { id: EnvironmentalLayerId
   const Icon = mode === "fires" ? Flame : Wind;
   const title = mode === "fires" ? "Incendios activos" : id === "ozone" ? "Atmósfera · ozono" : "Atmósfera · calidad del aire";
   const iconButton =
-    "grid min-h-11 min-w-11 shrink-0 place-items-center rounded-md text-[var(--ink-dim)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--signal)] disabled:opacity-40 min-[860px]:min-h-8 min-[860px]:min-w-8";
+    "grid min-h-11 min-w-11 shrink-0 place-items-center rounded-md text-[var(--ink-dim)] hover:text-[var(--ink)] focus-visible:outline-1 focus-visible:outline-[var(--signal-glow)] disabled:opacity-40 min-[860px]:min-h-8 min-[860px]:min-w-8";
 
   return (
     <aside
       data-layers-ui=""
-      className="legend-strip fixed left-[var(--gutter)] z-[5] min-[860px]:left-auto min-[860px]:right-[var(--gutter)] flex w-[340px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-[10px] border border-[var(--rule)] bg-[var(--panel)] px-3 py-2 text-[var(--ink)] backdrop-blur-md"
+      className="legend-strip fixed left-[var(--gutter)] z-[5] min-[860px]:left-auto min-[860px]:right-[var(--gutter)] flex w-[340px] max-w-[calc(100vw-24px)] flex-col gap-2 rounded-[8px] border border-[var(--rule)] bg-[var(--panel-strong)] px-3 py-2 text-[var(--ink)] backdrop-blur-[14px] backdrop-saturate-[1.3] shadow-[inset_0_1px_0_rgba(120,170,255,.08)]"
       style={{ bottom: `calc(max(var(--gutter), env(safe-area-inset-bottom)) + ${timelineH}px + 36px)` }}
       aria-label={mode === "fires" ? "Modo incendios" : "Modo atmósfera"}
     >
@@ -152,7 +152,7 @@ function ModeCardBody({ id, mode, onOpacityPreview }: { id: EnvironmentalLayerId
               type="button"
               aria-pressed={id === option.id}
               onClick={() => store().setAtmosphereLayer(option.id)}
-              className="min-h-8 flex-1 rounded-md px-2 text-[12.5px] max-[859px]:min-h-9 font-medium text-[var(--ink-dim)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--signal)] aria-pressed:bg-[var(--signal)] aria-pressed:text-[var(--signal-ink)]"
+              className="min-h-8 flex-1 rounded-md px-2 text-[12.5px] max-[859px]:min-h-9 font-medium text-[var(--ink-dim)] hover:text-[var(--ink)] focus-visible:outline-1 focus-visible:outline-[var(--signal-glow)] aria-pressed:bg-[var(--signal-soft)] aria-pressed:text-[var(--ink)] aria-pressed:shadow-[0_0_0_1px_var(--accent),0_0_14px_-2px_var(--signal-glow)]"
             >
               {option.label}
             </button>

@@ -5,6 +5,7 @@
  * `hide()` when the pointer leaves / drags / the view changes. One `THREE.Points` vertex, no per-frame allocations.
  */
 import { AdditiveBlending, BufferGeometry, Color, Float32BufferAttribute, Points, ShaderMaterial, type Vector3 } from "three";
+import { ENGINE_THEME } from "@/engine/theme";
 import type { ILayer, LayerFactory, LayerFactoryContext } from "@/engine/contract";
 
 const VERTEX = `
@@ -66,7 +67,7 @@ export class HoverLayer implements ILayer {
         uSizePx: { value: 18 },
         uPixelRatio: { value: 1 },
         uDepthBias: { value: SATELLITE_DEPTH_BIAS },
-        uColor: { value: new Color("#4ae9f9") },
+        uColor: { value: new Color(ENGINE_THEME.hover) },
         uTime: { value: 0 },
         uPulse: { value: reducedMotion ? 0 : PULSE_AMPLITUDE },
       },

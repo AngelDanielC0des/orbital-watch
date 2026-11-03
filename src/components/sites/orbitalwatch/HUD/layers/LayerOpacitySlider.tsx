@@ -66,7 +66,7 @@ export function LayerOpacitySlider({ id, disabled = false, onOpacityPreview }: L
         onPointerUp={commit}
         onKeyUp={commit}
         onBlur={commit}
-        className="h-11 min-w-0 flex-1 cursor-pointer accent-[var(--signal)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--signal)] disabled:cursor-not-allowed disabled:opacity-40"
+        className="h-11 min-w-0 flex-1 cursor-pointer accent-[var(--signal-glow)] focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[var(--signal-glow)] disabled:cursor-not-allowed disabled:opacity-40"
       />
       <output
         htmlFor={inputId}

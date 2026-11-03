@@ -19,7 +19,7 @@ export function DataSourceBadge({ id }: DataSourceBadgeProps) {
         target="_blank"
         rel="noopener noreferrer"
         title={meta.attribution.short}
-        className="underline-offset-2 hover:text-[var(--ink)] hover:underline focus-visible:text-[var(--ink)] focus-visible:underline focus-visible:outline-2 focus-visible:outline-[var(--signal)]"
+        className="underline-offset-2 hover:text-[var(--ink)] hover:underline focus-visible:text-[var(--ink)] focus-visible:underline focus-visible:outline-1 focus-visible:outline-[var(--signal-glow)]"
       >
         {meta.source.name} · {detail}
       </a>

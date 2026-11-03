@@ -160,7 +160,7 @@ export function LayersDrawer({ onToggleLayer }: LayersDrawerProps) {
             data-layers-sheet={snap}
             data-dragging={dragHeight !== null ? "true" : undefined}
             style={dragHeight !== null && window.innerWidth < DESKTOP_MIN_PX ? { height: dragHeight } : undefined}
-            className="layers-sheet fixed bottom-[calc(max(var(--gutter),env(safe-area-inset-bottom))+80px)] right-[var(--gutter)] top-[calc(var(--gutter)+64px)] z-[6] flex w-80 flex-col rounded-[10px] border border-[var(--rule)] bg-[var(--panel)] text-[var(--ink)] backdrop-blur-md max-[859px]:inset-x-0 max-[859px]:bottom-0 max-[859px]:top-auto max-[859px]:w-auto max-[859px]:rounded-b-none max-[859px]:rounded-t-2xl"
+            className="layers-sheet fixed bottom-[calc(max(var(--gutter),env(safe-area-inset-bottom))+80px)] right-[var(--gutter)] top-[calc(var(--gutter)+64px)] z-[6] flex w-80 flex-col rounded-[8px] border border-[var(--rule)] bg-[var(--panel-strong)] text-[var(--ink)] backdrop-blur-[14px] backdrop-saturate-[1.3] shadow-[inset_0_1px_0_rgba(120,170,255,.08)] max-[859px]:inset-x-0 max-[859px]:bottom-0 max-[859px]:top-auto max-[859px]:w-auto max-[859px]:rounded-b-none max-[859px]:rounded-t-2xl"
           >
             <button
               type="button"
@@ -170,7 +170,7 @@ export function LayersDrawer({ onToggleLayer }: LayersDrawerProps) {
               onPointerUp={onHandleUp}
               onPointerCancel={onHandleUp}
               onClick={onHandleClick}
-              className="hidden h-11 w-full shrink-0 cursor-grab touch-none items-center justify-center focus-visible:outline-2 focus-visible:outline-[var(--signal)] max-[859px]:flex"
+              className="hidden h-11 w-full shrink-0 cursor-grab touch-none items-center justify-center focus-visible:outline-1 focus-visible:outline-[var(--signal-glow)] max-[859px]:flex"
             >
               <span className="h-1 w-10 rounded-full bg-[var(--rule-strong)]" aria-hidden="true" />
             </button>
@@ -186,7 +186,7 @@ export function LayersDrawer({ onToggleLayer }: LayersDrawerProps) {
                 type="button"
                 aria-label="Cerrar capas"
                 onClick={close}
-                className="grid min-h-11 min-w-11 place-items-center rounded-md text-[var(--ink-dim)] hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-[var(--signal)]"
+                className="grid min-h-11 min-w-11 place-items-center rounded-md text-[var(--ink-dim)] hover:text-[var(--ink)] focus-visible:outline-1 focus-visible:outline-[var(--signal-glow)]"
               >
                 <X className="size-4" aria-hidden="true" />
               </button>

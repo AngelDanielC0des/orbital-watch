@@ -20,6 +20,7 @@ import {
   type Object3D,
 } from "three";
 import type { ILayer, LayerFactory } from "@/engine/contract";
+import { ENGINE_THEME } from "@/engine/theme";
 import { latLonToVector } from "@/lib/orbital/place-index";
 import type { Place, PlaceTarget } from "@/types/orbital";
 import { EarthLayer } from "./earth-layer";
@@ -98,7 +99,7 @@ function buildHighlight(place: PlaceTarget): Group {
   }
 
   const lineMaterial = new LineBasicMaterial({
-    color: 0xb8f4ff,
+    color: ENGINE_THEME.placeOutline,
     transparent: true,
     opacity: 1,
     depthWrite: false,

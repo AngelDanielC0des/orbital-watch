@@ -10,7 +10,7 @@ function SkeletonBlock({ className }: { className: string }) {
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute animate-pulse rounded-[10px] border border-[var(--rule)] bg-[var(--panel)]",
+        "pointer-events-none absolute animate-pulse rounded-[8px] border border-[var(--rule)] bg-[var(--panel)]",
         className,
       )}
     />
