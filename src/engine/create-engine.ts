@@ -596,6 +596,8 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     starlink: new Color("#bfe6ff"),
     alarm: new Color("#ff4a3a"),
   };
+  // The frozen OrbitTrack starts with its legacy cyan; apply the theme before anything is drawn (plan v2 / N3).
+  track.setColor(trackColors.default);
   function trackColorFor(entry: CatalogEntry): Color {
     if (sats?.filter === "debris" || entry.category === Category.DEBRIS || entry.category === Category.ROCKET_BODY) {
       return trackColors.alarm;
@@ -1466,6 +1468,9 @@ export function createOrbitalEngine(options: EngineOptions): EngineHandle {
     },
     clearLayerData: (id) => layers.getDataLayer(id)?.clearData(),
     clearLayerPick: () => selectLayerPoint(null),
+    selectLayerPoint: (id, index) => {
+      if (id === "pollution" || id === "fires" || id === "ozone") selectLayerPoint({ layerId: id, kind: "point", index, lat: 0, lon: 0, x: 0, y: 0 });
+    },
     pickLabel,
     setTimelineInset,
     findSatellites,

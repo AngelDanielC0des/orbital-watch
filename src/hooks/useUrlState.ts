@@ -8,7 +8,8 @@
 import { useEffect } from "react";
 import type { EngineHandle, EngineInitialState } from "@/engine/contract";
 import { ENVIRONMENTAL_LAYER_IDS } from "@/lib/layers/catalog";
-import { writeLayerParams } from "@/lib/layers/url-state";
+import { getLatestPollution } from "@/lib/layers/pollution/pollution.service";
+import { parseLayerUrlState, writeLayerParams } from "@/lib/layers/url-state";
 import { useEngineStore } from "@/stores/engine-store";
 import { useLayersStore } from "@/stores/layers-store";
 import type { SatelliteFilter, ViewMode } from "@/types/engine";
@@ -21,7 +22,7 @@ export interface ParsedUrlState {
 
 const VIEWS: readonly ViewMode[] = ["earth", "solar", "galaxy"];
 const FILTERS: readonly SatelliteFilter[] = ["all", "debris", "starlink", "projected"];
-const MANAGED_KEYS = ["view", "focus", "filter", "speed", "t", "sat", "night", "layers", "pollutant", "fires"] as const;
+const MANAGED_KEYS = ["view", "focus", "filter", "speed", "t", "sat", "night", "layers", "pollutant", "fires", "pt"] as const;
 const WRITE_THROTTLE_MS = 500;
 const MAX_ABS_SPEED = 1e7;
 
@@ -69,7 +70,7 @@ export function readUrlState(): ParsedUrlState {
 }
 
 /** Builds the canonical query string for the current store state (without the leading `?`). */
-function buildQuery(base: string, pendingSat: string | null): string {
+function buildQuery(base: string, pendingSat: string | null, pendingPt: string | null): string {
   const s = useEngineStore.getState();
   const q = new URLSearchParams(base);
   for (const k of MANAGED_KEYS) q.delete(k);
@@ -85,8 +86,13 @@ function buildQuery(base: string, pendingSat: string | null): string {
   if (sel) q.set("sat", String(sel.entry.omm.NORAD_CAT_ID));
   else if (pendingSat) q.set("sat", pendingSat);
 
-  const layers = useLayersStore.getState().layers;
+  const layersState = useLayersStore.getState();
+  const layers = layersState.layers;
+  const pick = layersState.selectedPick;
+  const pointId = pick && pick.layerId === "pollution" && pick.kind === "point" ? (getLatestPollution()?.dto.points[pick.index]?.id ?? null) : null;
   writeLayerParams(q, {
+    // A `pt` from the link stays in the URL until the point card has had the chance to apply it.
+    pointId: pointId ?? (pick === null ? pendingPt : null),
     visible: ENVIRONMENTAL_LAYER_IDS.filter((id) => layers[id].visible),
     pollutant: layers.pollution.config.pollutant,
     fireWindow: layers.fires.config.window,
@@ -106,6 +112,8 @@ export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState)
     let pendingSat = sat;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let lastWrite = 0;
+    let pendingPt = parseLayerUrlState(window.location.search).pointId;
+    let ptTimer: ReturnType<typeof setTimeout> | null = null;
 
     const write = () => {
       timer = null;
@@ -113,7 +121,8 @@ export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState)
       // Wait until the engine is ready and not mid-transition so defaults never clobber the incoming link.
       if (!alive || !s.loading.isDone || s.isBusy) return;
       lastWrite = Date.now();
-      const query = buildQuery(window.location.search, pendingSat);
+      if (pendingPt !== null && !useLayersStore.getState().layers.pollution.visible) pendingPt = null;
+      const query = buildQuery(window.location.search, pendingSat, pendingPt);
       const next = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
       const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       if (next !== current) window.history.replaceState(window.history.state, "", next);
@@ -180,6 +189,16 @@ export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState)
     });
 
     const unsubscribeLayers = useLayersStore.subscribe((s, prev) => {
+      if (s.selectedPick !== prev.selectedPick) {
+        pendingPt = null;
+        schedule();
+      }
+      if (pendingPt !== null && ptTimer === null && s.layers.pollution.status !== prev.layers.pollution.status && ["ready", "empty", "error"].includes(s.layers.pollution.status)) {
+        ptTimer = setTimeout(() => {
+          pendingPt = null;
+          schedule();
+        }, 1500);
+      }
       if (s.layers === prev.layers) return;
       for (const id of ENVIRONMENTAL_LAYER_IDS) {
         if (s.layers[id].visible !== prev.layers[id].visible) return schedule();
@@ -201,6 +220,7 @@ export function useUrlState(handle: EngineHandle | null, parsed: ParsedUrlState)
       unsubscribe();
       unsubscribeLayers();
       if (timer !== null) clearTimeout(timer);
+      if (ptTimer !== null) clearTimeout(ptTimer);
     };
   }, [handle, focus, sat, nightInitial, parsed.initial.view]);
 }

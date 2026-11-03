@@ -19,6 +19,15 @@ export interface LayerUrlState {
   mockErrorLayer: EnvironmentalLayerId | null;
   /** `?mock=snapshot`. */
   forceSnapshot: boolean;
+  /** Selected pollution point (`?pt=city-madrid`), allow-listed; null when absent or invalid. */
+  pointId: string | null;
+}
+
+const POINT_ID_RE = /^(city|grid)-[a-z0-9-]{1,48}$/;
+
+/** True for ids safe to put in / read from the `pt` parameter. */
+export function isPointId(value: string): boolean {
+  return POINT_ID_RE.test(value);
 }
 
 function isPollutant(value: string): value is Pollutant {
@@ -46,11 +55,13 @@ export function parseLayerUrlState(search: string): LayerUrlState {
   if (fireWin !== null && isFireWindow(fireWin)) config.fires = { window: fireWin };
 
   const mockError = q.get("mockError");
+  const pt = q.get("pt");
   return {
     visible,
     config,
     mockErrorLayer: mockError !== null && isEnvironmentalLayerId(mockError) ? mockError : null,
     forceSnapshot: q.get("mock") === "snapshot",
+    pointId: pt !== null && isPointId(pt) ? pt : null,
   };
 }
 
@@ -59,10 +70,10 @@ export function flagsFor(id: EnvironmentalLayerId, state: LayerUrlState): Provid
   return { mockError: state.mockErrorLayer === id, forceSnapshot: state.forceSnapshot };
 }
 
-/** Sets or deletes `layers`, `pollutant` and `fires`; defaults are omitted. */
+/** Sets or deletes `layers`, `pollutant`, `fires` and `pt`; defaults are omitted. */
 export function writeLayerParams(
   q: URLSearchParams,
-  s: { visible: readonly EnvironmentalLayerId[]; pollutant: Pollutant; fireWindow: FireWindow },
+  s: { visible: readonly EnvironmentalLayerId[]; pollutant: Pollutant; fireWindow: FireWindow; pointId?: string | null },
 ): void {
   const ordered = ENVIRONMENTAL_LAYER_IDS.filter((id) => s.visible.includes(id));
   if (ordered.length > 0) q.set("layers", ordered.join(","));
@@ -71,4 +82,6 @@ export function writeLayerParams(
   else q.delete("pollutant");
   if (s.fireWindow !== DEFAULT_FIRE_WINDOW) q.set("fires", s.fireWindow);
   else q.delete("fires");
+  if (s.pointId && isPointId(s.pointId)) q.set("pt", s.pointId);
+  else q.delete("pt");
 }

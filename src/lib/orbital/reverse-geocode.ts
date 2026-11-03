@@ -5,6 +5,7 @@
  */
 import type { LonLat, Place } from "@/types/orbital";
 import { loadPlaceIndex } from "./place-index";
+import { countryNameEs } from "./country-names";
 
 /** Country and US state containing a point (null when none). */
 export interface PlaceAt {
@@ -68,7 +69,7 @@ export function findPlace(places: readonly Place[], lat: number, lon: number): P
   for (const place of places) {
     if (place.kind === "country" ? result.country !== null : result.state !== null) continue;
     if (!contains(place, lat, lon)) continue;
-    if (place.kind === "country") result.country = place.name;
+    if (place.kind === "country") result.country = countryNameEs(place.name);
     else result.state = place.name;
     if (result.country !== null && result.state !== null) break;
   }

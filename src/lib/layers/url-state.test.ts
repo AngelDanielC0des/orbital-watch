@@ -8,6 +8,7 @@ describe("parseLayerUrlState", () => {
       config: {},
       mockErrorLayer: null,
       forceSnapshot: false,
+      pointId: null,
     });
   });
 
@@ -22,6 +23,15 @@ describe("parseLayerUrlState", () => {
       fires: { window: "7d" },
     });
     expect(parseLayerUrlState("pollutant=xx&fires=3d").config).toEqual({});
+  });
+
+  it("parses pt with an allow-list", () => {
+    expect(parseLayerUrlState("pt=city-madrid").pointId).toBe("city-madrid");
+    expect(parseLayerUrlState("pt=grid-15n-20e").pointId).toBe("grid-15n-20e");
+    expect(parseLayerUrlState("pt=<script>").pointId).toBeNull();
+    expect(parseLayerUrlState("pt=city-Madrid").pointId).toBeNull();
+    expect(parseLayerUrlState("pt=foo-bar").pointId).toBeNull();
+    expect(parseLayerUrlState("pt=city-").pointId).toBeNull();
   });
 
   it("reads dev flags per layer", () => {
@@ -46,6 +56,16 @@ describe("writeLayerParams", () => {
     expect(q.get("pollutant")).toBe("o3");
     expect(q.get("fires")).toBe("48h");
     expect(q.has("mock")).toBe(false);
+  });
+
+  it("writes and removes pt", () => {
+    const q = new URLSearchParams("pt=city-old");
+    writeLayerParams(q, { visible: [], pollutant: "pm2_5", fireWindow: "24h", pointId: "city-madrid" });
+    expect(q.get("pt")).toBe("city-madrid");
+    writeLayerParams(q, { visible: [], pollutant: "pm2_5", fireWindow: "24h", pointId: null });
+    expect(q.has("pt")).toBe(false);
+    writeLayerParams(q, { visible: [], pollutant: "pm2_5", fireWindow: "24h", pointId: "bad id" });
+    expect(q.has("pt")).toBe(false);
   });
 
   it("round trips", () => {

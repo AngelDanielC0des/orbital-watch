@@ -121,6 +121,8 @@ export interface EngineCommandFacade {
   clearLayerData?(layerId: string): void;
   /** ADR-16: clears the selected overlay point (card closed by the UI); no event is emitted. */
   clearLayerPick?(): void;
+  /** ADR-16: highlights point `index` of a data layer as selected (lists in the UI); no event is emitted. */
+  selectLayerPoint?(layerId: string, index: number): void;
   dispose(): void;
 }
 
