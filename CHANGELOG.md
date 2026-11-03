@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Added
 
+- Plan v2: hover (point grows + ring + tooltip) and click/tap info cards for air-quality points, fire hotspots and cells, and the ozone surface (DU at any point); city vs grid nodes; worst-cities and top fire regions rankings with fly-to; day/night filter and summary for fires; `pt=` deep link; Spanish country names via local reverse geocoding.
+- Plan v2: electric-blue redesign (#2f7dff), hairlines, glass panels; engine accents from `src/engine/theme.ts`.
+
+#### Fixed
+
+- Labels no longer jump on hover in the solar system and Milky Way views.
+- «Previstos» shows planned launches dimmed on their planned orbit instead of an empty view.
+
 - HUD modes «Incendios» and «Atmósfera» next to the satellite filters; each mode shows only its own data (satellites hidden), atmosphere switches between air quality and ozone; mode card with legend, date, selectors and Info (opacity, sources). The environmental section was removed from the Capas panel.
 - Three environmental data layers on the globe, hidden by default: ozone total column (NASA GIBS, raster), surface air quality (Open-Meteo CAMS, points) and active fires (NASA FIRMS VIIRS, density grid plus hotspots). See `docs/layers/README.md`.
 - Route Handlers `GET /api/orbital/ozone`, `/pollution` and `/fires` with allow-listed params, in-memory memo with in-flight de-duplication, `Cache-Control` (`s-maxage` + `stale-while-revalidate`) and bundled snapshot fallbacks.

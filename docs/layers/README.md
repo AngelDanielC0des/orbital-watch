@@ -227,6 +227,23 @@ vuelve a «Todo». «Atmósfera» muestra una sola capa a la vez: calidad del ai
 la tarjeta. Pulsar un filtro de satélites, el × de la tarjeta, el botón del modo activo o seleccionar un satélite vuelve
 al modo órbita. Los deep links `layers=` se traducen a un modo (incendios > calidad del aire > ozono).
 
+## 4c. Interactividad de los puntos (ADR-16, plan v2)
+
+- **Hover** (ratón): el punto crece y aparece el anillo de selección; un tooltip de una línea resume el dato
+  («El Cairo · PM2.5 43 µg/m³ · Mala», «Foco · 486 MW · Intenso», «271 DU · Normal»). Sobre el ozono el cursor es una cruz:
+  cualquier punto del globo es consultable.
+- **Clic / toque**: tarjeta de información (`HUD/layers/PointInfoCard.tsx`, estilo del panel de satélite):
+  calidad del aire con los 8 indicadores, categoría en palabras y comparación con la guía de la OMS; foco con potencia,
+  hora UTC, satélite, día/noche y confianza; zona (celda 0,5°) con nº aproximado de detecciones; ozono con DU y clase.
+  País/estado por geocodificación inversa local (`src/lib/orbital/reverse-geocode.ts`, nombres en español).
+- **Motor**: hit-test en CPU dentro de cada capa (`pick`), énfasis por `gl_VertexID` (`setHovered`/`setSelected`),
+  eventos `onLayerHover`/`onLayerPick` → `layers-store` (`hoveredPick`, `selectedPick`). Datos de la tarjeta:
+  `src/lib/layers/pick-resolver.ts` sobre el último DTO/payload de cada servicio (sin peticiones nuevas).
+- **Rankings**: «Peores ciudades» (calidad del aire) y «Regiones con más focos» en la tarjeta del modo; cada fila vuela
+  al punto y abre su tarjeta. Deep link `pt=<id>` para un punto de calidad del aire.
+- **Focos**: 7 valores por foco (`FIRE_HOTSPOT_STRIDE`): lat, lon, FRP, día, confianza, minutos antes de la generación,
+  satélite. Los snapshots antiguos (4 valores) siguen aceptándose.
+
 ## 5. Memoria, liberación y presupuesto
 
 ### Reglas
