@@ -84,3 +84,14 @@ Open items: real-GPU fps on desktop/mobile; offline DevTools run; 7 d live fetch
 
 ### HUD modes «Incendios» / «Atmósfera» (2026-11-02, user request) — commit 1e0be78, deployed to production
 - Production check (https://orbital-watch-sable.vercel.app/orbitalwatch, deployment `orbital-watch-23w8knoca…`): start = orbit mode, no card; Incendios → card "Modo incendios", data 2 nov 13:05 UTC; Atmósfera → air quality, 2 nov 13:00 UTC; Ozono → 29 oct 2026 UTC (4096 px image takes a few seconds); Todo → back to satellites, card gone; 0 console errors. Evidence `docs/design-references/mode-*-vercel-prod.webp`.
+
+## Plan v2 (2026-11-03) — interactividad, rediseño y bugs — executed (`.agent/plan-v2-interaccion-y-rediseno.md`)
+Commits: ff6f6cd N1 · 79d6b39 N2 · 72439f1 N3 · eb06225 N4 · bd07d75 N5 · c0d4d9c N6 · 64b1a2a N7+N8 · b8ecfb9 N10 docs. Production: https://orbital-watch-sable.vercel.app (deployment `orbital-watch-46ldgholt…`).
+- N1 labels: hovered label drift **0 px** over 2 s (Júpiter/Urano in solar, «Brazo de Sagitario» in galaxy; prod Urano 0 px).
+- N2 Previstos: 0 → **6 406** objects at «ahora» (dimmed, planned orbit) in dev and prod.
+- N3 theme: `#2f7dff`, hairlines, glass; engine accents in `src/engine/theme.ts` (hover ring, track + reticle, place outline).
+- N4/N6 picking: hover grows the point + ring + tooltip; click opens the card (pollution, fire point, fire cell, ozone surface). Examples: «El Cairo · PM2.5 43 µg/m³ · Mala»; Faisalabad (Pakistán) ×8,6 OMS; fire 486 MW Tanzania NOAA-21; ozone 271 DU Normal (Libia). `pt=` deep link restores the card in ~2 s. 0 console errors.
+- N9 numbers (dev, headless software GL, tier hi): draw calls orbit 14 · fires 9 · pollution 8 · ozone 8 (satellites hidden in modes); textures 21 → 25, geometries 14 → 18 and **stable after 5 mode/pick cycles**; 26–28 fps.
+- Tests 246/246; `npm run check` green.
+- Environment note: at one point the headless browser throttled every page (prod too) to 4 fps and the solar warp stayed on; `bringToFront()` restored 28 fps and the transition finishes in 3–4 s. Not a regression (identical on the previous production build).
+- Unverified: real-GPU/mobile-device fps; touch behaviour on a physical phone; `placeAt` coverage for small islands (110m polygons).
