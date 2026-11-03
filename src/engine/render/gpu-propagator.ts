@@ -81,6 +81,7 @@ const PROPAGATE_FRAGMENT = `
   uniform float uMinutes;
   uniform float uCount;
   uniform float uVisible[8];
+  uniform float uShowPlanned; // 1 with the "projected" filter: planned objects drawn dimmed on their planned orbit before launch
 
   const float TWO_PI = 6.28318530718;
 
@@ -98,7 +99,9 @@ const PROPAGATE_FRAGMENT = `
     float t = uMinutes;
 
     int group = int(C.y + 0.5);
-    float visible = uVisible[group] * step(C.z, t) * smoothstep(C.z, C.z + 2880.0, t);
+    float launched = step(C.z, t) * smoothstep(C.z, C.z + 2880.0, t);
+    float planned = uShowPlanned * step(3.5, float(group)) * (1.0 - step(C.z, t)) * 0.5;
+    float visible = uVisible[group] * max(launched, planned);
 
     float a = A.x;
     float e = A.y;
@@ -137,6 +140,7 @@ export type GpuPropagatorUniforms = {
   uMinutes: IUniform<number>;
   uCount: IUniform<number>;
   uVisible: IUniform<number[]>;
+  uShowPlanned: IUniform<number>;
 };
 
 /**
@@ -190,6 +194,7 @@ export class GpuPropagator {
       uMinutes: { value: 0 },
       uCount: { value: count },
       uVisible: { value: [1, 1, 1, 1, 1, 1, 1, 1] },
+      uShowPlanned: { value: 0 },
     };
     this.material = new ShaderMaterial({
       uniforms: this.uniforms,
@@ -236,6 +241,15 @@ export class GpuPropagator {
     const visible = this.uniforms.uVisible.value;
     for (let n = 0; n < 8; n++) visible[n] = mask[n];
     this.dirty = true;
+  }
+
+  /** Plan v2 / N2: draw not-yet-launched planned objects (dimmed) while the "projected" filter is active. */
+  setShowPlanned(on: boolean): void {
+    const value = on ? 1 : 0;
+    if (this.uniforms.uShowPlanned.value !== value) {
+      this.uniforms.uShowPlanned.value = value;
+      this.dirty = true;
+    }
   }
 
   update(): boolean {

@@ -636,6 +636,7 @@ export class SatelliteLayer {
     if (!mask) return;
     this.filter = filter as SatelliteFilter;
     this.compute.setVisibility(mask);
+    this.compute.setShowPlanned(filter === "projected");
     this.uniforms.uProjectedMix.value = filter === "projected" ? 1 : 0.55;
     this.lod.lastMs = -Infinity;
   }
@@ -652,7 +653,8 @@ export class SatelliteLayer {
   }
 
   isVisible(index: number, ms: number): boolean {
-    return FILTER_MASKS[this.filter][this.groups[index]] === 1 && this.data[index * STRIDE + FIELD.LAUNCH] <= ms;
+    // Plan v2 / N2: with the "projected" filter, planned objects show before launch (the mask already limits it to groups 4–7).
+    return FILTER_MASKS[this.filter][this.groups[index]] === 1 && (this.filter === "projected" || this.data[index * STRIDE + FIELD.LAUNCH] <= ms);
   }
 
   countVisible(ms: number, out: number[] = [0, 0, 0, 0]): number[] {
@@ -660,7 +662,7 @@ export class SatelliteLayer {
     const mask = FILTER_MASKS[this.filter];
     for (let i = 0; i < this.count; i++) {
       const group = this.groups[i];
-      if (mask[group] === 1 && this.data[i * STRIDE + FIELD.LAUNCH] <= ms) out[group & 3]++;
+      if (mask[group] === 1 && (this.filter === "projected" || this.data[i * STRIDE + FIELD.LAUNCH] <= ms)) out[group & 3]++;
     }
     return out;
   }
