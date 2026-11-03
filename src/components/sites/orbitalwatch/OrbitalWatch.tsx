@@ -26,6 +26,8 @@ import { STRIPE_PAYMENT_LINK } from "@/engine/config";
 import type { ViewMode } from "@/types/engine";
 
 const VIEW_CLASSES = ["view-earth", "view-solar", "view-galaxy"] as const;
+/** Stable identity: a new `[]` per render made LabelOverlay rebuild its FrameBus subscription. */
+const NO_LABEL_DEFS: never[] = [];
 
 const VIEW_HINTS: Record<ViewMode, string> = {
   earth: "Arrastra para rotar · rueda o pellizco para zoom · toca un objeto para seguir su órbita",
@@ -179,7 +181,7 @@ export function OrbitalWatch() {
       <EnvironmentModeCard onOpacityPreview={(id, v) => handle?.setLayerOpacity?.(id, v)} />
 
       {/* 3D Screen Projected Labels Target */}
-      <LabelOverlay frames={handle?.frames ?? null} defs={[]} onPick={(k) => void handle?.pickLabel(k)} />
+      <LabelOverlay frames={handle?.frames ?? null} defs={NO_LABEL_DEFS} onPick={(k) => void handle?.pickLabel(k)} />
 
       {/* Orbital Filters & Night Mode */}
       <FilterBar
