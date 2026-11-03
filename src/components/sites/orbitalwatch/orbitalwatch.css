@@ -210,3 +210,12 @@ body.view-earth .filters{right:var(--gutter)}
 
 /* Fallback without backdrop-filter: more opaque surfaces */
 @supports not (backdrop-filter:blur(1px)){.place-search input,.segmented,.toggle,.timeline,.scales,.legend-strip{background:var(--panel-strong)}}
+
+/* Point card */
+.panel.point-card{z-index:6;max-height:calc(100dvh - 220px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+/* Desktop: the point card takes the top-right panel slot; the mode card steps left so they never overlap. */
+@media (min-width:860px){body:has([data-point-card]) .legend-strip{right:calc(var(--gutter) + 330px + 12px)}}
+@media (prefers-reduced-motion:no-preference){.panel.point-card{animation:point-card-in .45s var(--ease-out)}@keyframes point-card-in{from{clip-path:inset(0 0 100% 0);opacity:0}to{clip-path:inset(0);opacity:1}}}
+@media (max-width:859px){.panel.point-card{top:auto;left:var(--gutter);right:var(--gutter);width:auto;bottom:var(--pc-bottom,140px);max-height:45dvh}
+body:has([data-point-card]) .legend-strip{display:none}}
+/* End point card */

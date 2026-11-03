@@ -14,6 +14,8 @@ import { SatellitePanel } from "./HUD/SatellitePanel";
 import { BodyPanel } from "./HUD/BodyPanel";
 import { Timeline } from "./HUD/Timeline";
 import { EnvironmentModeCard } from "./HUD/layers/EnvironmentModeCard";
+import { PointInfoCard } from "./HUD/layers/PointInfoCard";
+import { PointTooltip } from "./HUD/layers/PointTooltip";
 import { Loader } from "./HUD/Loader";
 import { Hint } from "./HUD/Hint";
 import { EngineErrorOverlay, useIsFatalEngineError } from "./HUD/EngineErrorOverlay";
@@ -178,7 +180,9 @@ export function OrbitalWatch() {
 
       <EnvironmentalLayersController handle={handle} urlState={layerUrl} />
 
-      <EnvironmentModeCard onOpacityPreview={(id, v) => handle?.setLayerOpacity?.(id, v)} />
+      <EnvironmentModeCard onOpacityPreview={(id, v) => handle?.setLayerOpacity?.(id, v)} handle={handle} />
+      <PointTooltip />
+      <PointInfoCard handle={handle} />
 
       {/* 3D Screen Projected Labels Target */}
       <LabelOverlay frames={handle?.frames ?? null} defs={NO_LABEL_DEFS} onPick={(k) => void handle?.pickLabel(k)} />
